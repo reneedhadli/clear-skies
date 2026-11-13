@@ -5,7 +5,7 @@ export const demoProfile = {
   program: "Computing Science",
 };
 
-export const demoDeadlines = [
+const demoDeadlineItems = [
   { course: "CMPUT 201", title: "Lab 1: Git & testing", type: "lab", week: 2, day: "Fri", weight: 2 },
   { course: "CMPUT 201", title: "Assignment 1: C pointers", type: "assignment", week: 3, day: "Fri", weight: 5 },
   { course: "CMPUT 201", title: "Quiz 1: testing habits", type: "quiz", week: 4, day: "Tue", weight: 3 },
@@ -42,6 +42,23 @@ export const demoDeadlines = [
   { course: "ENGL 102", title: "Essay 3: drama", type: "assignment", week: 12, day: "Fri", weight: 10 },
   { course: "ENGL 102", title: "Final portfolio", type: "final", week: 14, day: "Thu", weight: 20 },
 ];
+
+const demoTimes = {
+  midterm: ["2:00 PM"],
+  final: ["9:00 AM"],
+  quiz: ["10:00 AM", "2:00 PM"],
+  lab: ["11:00 AM"],
+  assignment: ["11:59 PM", "5:00 PM"],
+  project: ["11:59 PM"],
+};
+
+export const demoDeadlines = demoDeadlineItems.map((item, index) => {
+  const options = demoTimes[item.type] || ["11:59 PM"];
+  return {
+    ...item,
+    time: options[index % options.length],
+  };
+});
 
 export const demoSyllabi = [
   {

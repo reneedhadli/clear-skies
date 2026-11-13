@@ -19,14 +19,19 @@ const QUESTIONS = [
       { value: "tech", emoji: "💻", label: "Tech" },
       { value: "art", emoji: "🎨", label: "Art" },
       { value: "volunteering", emoji: "🤝", label: "Volunteering" },
+      { value: "culture", emoji: "🌎", label: "Culture" },
+      { value: "career", emoji: "💼", label: "Career" },
+      { value: "wellness", emoji: "🌿", label: "Wellness" },
+      { value: "outdoors", emoji: "🌲", label: "Outdoors" },
     ],
   },
   {
     id: "vibe",
     title: "What's your club energy?",
-    helper: "Be honest — both are good.",
+    helper: "Be honest — there are no wrong answers.",
     options: [
-      { value: "chill", emoji: "😌", label: "Chill", description: "Low pressure, good chats" },
+      { value: "chill", emoji: "😌", label: "Chill hangouts", description: "Low pressure, good chats" },
+      { value: "either", emoji: "🌤️", label: "A bit of both", description: "Flexible on the energy" },
       {
         value: "competitive",
         emoji: "🔥",
@@ -40,20 +45,16 @@ const QUESTIONS = [
     title: "How much time feels right?",
     helper: "A rough weekly guess is perfect.",
     options: [
-      { value: 2, emoji: "🌱", label: "1–2 hours", description: "Keep it light" },
-      { value: 4, emoji: "🌤️", label: "3–5 hours", description: "A steady hobby" },
-      { value: 6, emoji: "⚡", label: "6+ hours", description: "All in" },
+      { value: 1.5, emoji: "🌱", label: "Under 2 hrs a week", description: "Keep it light" },
+      { value: 3, emoji: "🌤️", label: "2 to 4 hrs", description: "A steady hobby" },
+      { value: 6, emoji: "⚡", label: "5+ hrs", description: "All in" },
     ],
   },
   {
-    id: "meetingDay",
-    title: "When do you like to meet?",
-    helper: "We'll line it up with your calmer weeks.",
-    options: [
-      { value: "Weeknights", emoji: "🌙", label: "Weeknights", description: "After class" },
-      { value: "Weekends", emoji: "☀️", label: "Weekends", description: "Saturday energy" },
-      { value: "Any", emoji: "🗓️", label: "Any time", description: "Surprise me" },
-    ],
+    id: "extraContext",
+    title: "Anything else you're into?",
+    helper: "Optional — share a couple of things you enjoy.",
+    freeText: true,
   },
 ];
 
@@ -99,12 +100,16 @@ export default function ClubQuiz({ initialAnswers, onComplete }) {
     interests: initialAnswers?.interests ? [...initialAnswers.interests] : [],
     vibe: initialAnswers?.vibe || null,
     hours: initialAnswers?.hours || null,
-    meetingDay: initialAnswers?.meetingDay || null,
+    extraContext: initialAnswers?.extraContext || "",
   }));
   const [index, setIndex] = useState(0);
   const question = QUESTIONS[index];
   const current = answers[question.id];
-  const answered = question.multi ? current.length > 0 : current !== null && current !== "";
+  const answered = question.multi
+    ? current.length > 0
+    : question.freeText
+      ? true
+      : current !== null && current !== "";
 
   function choose(value) {
     setAnswers((prev) => {
@@ -126,7 +131,7 @@ export default function ClubQuiz({ initialAnswers, onComplete }) {
     if (index < QUESTIONS.length - 1) {
       setIndex((value) => value + 1);
     } else {
-      onComplete(answers);
+      onComplete({ ...answers, extraContext: answers.extraContext.trim() });
     }
   }
 
@@ -175,26 +180,47 @@ export default function ClubQuiz({ initialAnswers, onComplete }) {
             <div key={question.id} className="mt-5 animate-fade-up">
               <h2 className="text-2xl font-black tracking-tight sm:text-3xl">{question.title}</h2>
               <p className="mt-1 text-sm text-muted">{question.helper}</p>
-              <div
-                className={`mt-5 grid gap-2 ${
-                  question.id === "interests" ? "grid-cols-2 sm:grid-cols-3" : "sm:grid-cols-2"
-                }`}
-                role="group"
-                aria-label={question.title}
-              >
-                {question.options.map((option) => (
-                  <OptionTile
-                    key={option.value}
-                    option={option}
-                    selected={
-                      question.multi
-                        ? current.includes(option.value)
-                        : current === option.value
+              {question.freeText ? (
+                <div className="mt-5">
+                  <label htmlFor="club-extra-context" className="sr-only">
+                    Anything else you&apos;re into?
+                  </label>
+                  <textarea
+                    id="club-extra-context"
+                    value={current}
+                    maxLength={100}
+                    onChange={(event) =>
+                      setAnswers((prev) => ({ ...prev, extraContext: event.target.value }))
                     }
-                    onClick={() => choose(option.value)}
+                    placeholder="e.g. anime, rock climbing, startups"
+                    className="min-h-24 w-full resize-y rounded-[22px] border border-white/10 bg-raised/50 p-4 text-sm text-text placeholder:text-muted focus:border-amber/50"
                   />
-                ))}
-              </div>
+                  <p className="mt-1 text-right text-xs text-muted">
+                    {current.length}/100
+                  </p>
+                </div>
+              ) : (
+                <div
+                  className={`mt-5 grid gap-2 ${
+                    question.id === "interests" ? "grid-cols-2 sm:grid-cols-3" : "sm:grid-cols-2"
+                  }`}
+                  role="group"
+                  aria-label={question.title}
+                >
+                  {question.options.map((option) => (
+                    <OptionTile
+                      key={option.value}
+                      option={option}
+                      selected={
+                        question.multi
+                          ? current.includes(option.value)
+                          : current === option.value
+                      }
+                      onClick={() => choose(option.value)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="mt-6 flex items-center justify-between gap-3">

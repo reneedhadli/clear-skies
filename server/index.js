@@ -10,6 +10,8 @@ const {
 const { fallbackPlan } = require("./fallbacks/plans");
 const { fallbackChat } = require("./fallbacks/chat");
 const { fallbackClubCopy } = require("./fallbacks/clubCopy");
+const { cleanAIShortlist, localFallback, prefilterClubs } = require("./lib/clubShortlist");
+const clubs = require("../client/src/data/clubs.json");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -41,8 +43,26 @@ function cleanDeadline(raw) {
     type: normalizeType(raw.type, title),
     week,
     day: normalizeDay(raw.day),
+    time: normalizeTime(raw.time),
     weight: Math.min(100, Math.round(weight * 10) / 10),
   };
+}
+
+function normalizeTime(value) {
+  const text = String(value || "").trim();
+  if (!text) return "Time TBA";
+  const match = text.match(/\b(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)\b/i);
+  if (match) {
+    const hour = Number(match[1]);
+    const minute = match[2] || "00";
+    return `${hour}:${minute} ${match[3].replace(/\./g, "").toUpperCase()}`;
+  }
+  const twentyFourHour = text.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
+  if (twentyFourHour) {
+    const hour = Number(twentyFourHour[1]);
+    return `${hour % 12 || 12}:${twentyFourHour[2]} ${hour < 12 ? "AM" : "PM"}`;
+  }
+  return "Time TBA";
 }
 
 function validateDeadlines(raw) {
@@ -67,7 +87,7 @@ app.post("/api/extract", async (req, res) => {
 
   try {
     const systemPrompt =
-      'You are a precise syllabus parser for a U of A student app. Return ONLY valid JSON, with no markdown, matching {"deadlines":[...]}. Each deadline must be {course,title,type,week,day,weight}. type must be one of assignment|quiz|lab|midterm|final|project. week is an integer 1-15 in a 15-week term. day must be one of Mon,Tue,Wed,Thu,Fri,Sat,Sun. weight is the percent of the final grade as a number. Include every graded item and exam. Do not invent items. Use the course code written in the syllabus.';
+      'You are a precise syllabus parser for a U of A student app. Return ONLY valid JSON, with no markdown, matching {"deadlines":[...]}. Each deadline must be {course,title,type,week,day,time,weight}. type must be one of assignment|quiz|lab|midterm|final|project. week is an integer 1-15 in a 15-week term. day must be one of Mon,Tue,Wed,Thu,Fri,Sat,Sun. time must use a format such as "2:00 PM" when stated in the syllabus, otherwise "Time TBA". weight is the percent of the final grade as a number. Include every graded item and exam. Do not invent items. Use the course code written in the syllabus.';
 
     const response = await callLLM(
       systemPrompt,
@@ -218,6 +238,62 @@ Return one entry for every club id.`;
   } catch (error) {
     console.error("[club-copy]", error.message);
     res.json(fallbackClubCopy(quizAnswers, clubs));
+  }
+});
+
+app.post("/api/club-shortlist", async (req, res) => {
+  const quizAnswers =
+    req.body?.quizAnswers && typeof req.body.quizAnswers === "object"
+      ? req.body.quizAnswers
+      : {};
+  const rawProfile =
+    req.body?.profile && typeof req.body.profile === "object" ? req.body.profile : {};
+  const profile = {
+    program: String(rawProfile.program || ""),
+    year: Number(rawProfile.year) || null,
+    courses: Array.isArray(rawProfile.courses)
+      ? rawProfile.courses.map((course) => String(course)).slice(0, 30)
+      : [],
+  };
+  const freeWeeks = Array.isArray(req.body?.freeWeeks)
+    ? req.body.freeWeeks.map(Number).filter((week) => Number.isInteger(week) && week >= 1 && week <= 15)
+    : [];
+  const excludeIds = Array.isArray(req.body?.excludeIds)
+    ? req.body.excludeIds.filter((id) => typeof id === "string")
+    : [];
+  const candidates = prefilterClubs({ clubs, quizAnswers, profile, freeWeeks, excludeIds });
+
+  if (!candidates.length) return res.json({ clubs: [], source: "local" });
+
+  try {
+    const compactClubs = candidates.map(({ club }) => ({
+      id: club.id,
+      name: club.name,
+      category: club.category,
+      tags: club.tags,
+      description: String(club.description || "").replace(/\s+/g, " ").slice(0, 180),
+    }));
+    const systemPrompt =
+      'You match U of A students with ONLY the supplied real student groups. Return ONLY JSON: {"clubs":[{"id":string,"match":number,"bio":string,"why":string,"wildcard":boolean}]}. Return 15 to 20 clubs when available, ranked best first. Match must be 0-100. bio is fun and under 12 words. why is one specific sentence under 25 words. Only use supplied IDs and facts; never invent clubs or details. Include at least two categories when available and 1-2 lower-ranked but plausible wildcard picks marked wildcard:true. Do not mark more than 2 wildcards.';
+    const userPrompt = `Student quiz answers: ${JSON.stringify(quizAnswers)}
+Student profile: ${JSON.stringify(profile)}
+Free forecast weeks: ${JSON.stringify(freeWeeks)}
+Available groups: ${JSON.stringify(compactClubs)}
+
+Return the ranked shortlist JSON only.`;
+
+    const response = await callLLM(systemPrompt, userPrompt);
+    const shortlist = cleanAIShortlist(parseJSON(response), candidates, quizAnswers);
+    if (!shortlist.length) throw new Error("No valid clubs in AI shortlist");
+    let wildcardCount = 0;
+    shortlist.forEach((club) => {
+      if (club.wildcard && wildcardCount >= 2) club.wildcard = false;
+      if (club.wildcard) wildcardCount += 1;
+    });
+    res.json({ clubs: shortlist, source: "ai" });
+  } catch (error) {
+    console.error("[club-shortlist]", error.message);
+    res.json({ clubs: localFallback(candidates, quizAnswers), source: "fallback" });
   }
 });
 

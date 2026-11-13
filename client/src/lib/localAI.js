@@ -44,6 +44,10 @@ export function localExtract(text) {
       const day = dayMatch
         ? dayMatch[1][0].toUpperCase() + dayMatch[1].slice(1, 3).toLowerCase()
         : "Fri";
+      const time = line.match(
+        /\b(?:at\s*)?(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)\b/i
+      );
+      const time24 = line.match(/\b(?:at\s*)?([01]?\d|2[0-3]):([0-5]\d)\b/);
       const title = line
         .replace(/week\s*\d{1,2}/i, "")
         .replace(/\d{1,3}\s*%/g, "")
@@ -51,7 +55,15 @@ export function localExtract(text) {
         .replace(/^[\s—–\-·:,.]+|[\s—–\-·:,.]+$/g, "")
         .slice(0, 80);
       if (!title) return;
-      found.push({ course, title, type, week, day, weight });
+      found.push({
+        course,
+        title,
+        type,
+        week,
+        day,
+        time: time?.[0]?.replace(/^at\s*/i, "") || time24?.[0]?.replace(/^at\s*/i, "") || "Time TBA",
+        weight,
+      });
     });
   return found;
 }
@@ -182,5 +194,4 @@ export function localClubCopy(quizAnswers = {}, clubs = []) {
     })
   );
 }
-
 

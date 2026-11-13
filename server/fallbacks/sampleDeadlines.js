@@ -42,6 +42,14 @@ const BY_COURSE = {
 };
 
 const TYPES = ["assignment", "quiz", "lab", "midterm", "final", "project"];
+const TIMES_BY_TYPE = {
+  assignment: ["11:59 PM", "5:00 PM"],
+  quiz: ["10:00 AM", "2:00 PM"],
+  lab: ["11:00 AM"],
+  midterm: ["2:00 PM"],
+  final: ["9:00 AM"],
+  project: ["11:59 PM"],
+};
 
 function normalizeDay(value) {
   const map = {
@@ -76,6 +84,27 @@ function normalizeType(value, title = "") {
   return "assignment";
 }
 
+function normalizeTime(value) {
+  const text = String(value || "").trim();
+  if (!text) return "Time TBA";
+  const match = text.match(/\b(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)\b/i);
+  if (match) {
+    return `${Number(match[1])}:${match[2] || "00"} ${match[3]
+      .replace(/\./g, "")
+      .toUpperCase()}`;
+  }
+  const time24 = text.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
+  if (time24) {
+    const hour = Number(time24[1]);
+    return `${hour % 12 || 12}:${time24[2]} ${hour < 12 ? "AM" : "PM"}`;
+  }
+  return "Time TBA";
+}
+
+function timeForItem(item, index) {
+  return normalizeTime(item.time || TIMES_BY_TYPE[item.type]?.[index % TIMES_BY_TYPE[item.type].length]);
+}
+
 function detectKnownCourses(text) {
   const lower = String(text || "").toLowerCase();
   return Object.keys(BY_COURSE).filter((code) =>
@@ -106,6 +135,9 @@ function parseGeneric(text) {
     const dayMatch = line.match(
       /\b(mon(?:day)?|tue(?:s|sday)?|wed(?:nesday)?|thu(?:r|rs|rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\b/i
     );
+    const timeMatch = line.match(
+      /\b(?:at\s*)?(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)\b/i
+    ) || line.match(/\b(?:at\s*)?([01]?\d|2[0-3]):([0-5]\d)\b/i);
     const title = line
       .replace(/week\s*\d{1,2}/i, "")
       .replace(/\b(mon(?:day)?|tue(?:s|sday)?|wed(?:nesday)?|thu(?:r|rs|rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\b/i, "")
@@ -124,6 +156,7 @@ function parseGeneric(text) {
       type: normalizeType(line, title),
       week,
       day: normalizeDay(dayMatch?.[0]),
+      time: normalizeTime(timeMatch?.[0]),
       weight,
     });
   });
@@ -134,7 +167,12 @@ function parseGeneric(text) {
 function fallbackExtract(text) {
   const known = detectKnownCourses(text);
   if (known.length) {
-    return known.flatMap((code) => BY_COURSE[code].map((item) => ({ ...item })));
+    return known.flatMap((code) =>
+      BY_COURSE[code].map((item, index) => ({
+        ...item,
+        time: timeForItem(item, index),
+      }))
+    );
   }
   return parseGeneric(text);
 }

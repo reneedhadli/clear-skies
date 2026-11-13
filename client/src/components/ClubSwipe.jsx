@@ -14,11 +14,8 @@ import {
   clubEventsForForecast,
   computeMatch,
   nextEventWeather,
-  rankedClubs,
 } from "../lib/clubs.js";
 import { weatherMeta } from "../lib/weather.js";
-import { postJSON } from "../lib/api.js";
-import { localClubCopy } from "../lib/localAI.js";
 
 function scrollToMyClubs() {
   document.getElementById("my-clubs")?.scrollIntoView({ behavior: "smooth" });
@@ -90,6 +87,11 @@ function SwipeCard({ club, bio, why, eventWeather, reduce, exitDirection, onSwip
         <span className="absolute left-4 top-4 rounded-full bg-[#fbfbf6]/85 px-3 py-1 text-[11px] font-extrabold capitalize text-meadow-ink">
           {club.category}
         </span>
+        {club.wildcard && (
+          <span className="absolute bottom-3 right-4 rounded-full bg-[#fbfbf6]/90 px-2.5 py-1 text-[10px] font-extrabold text-[#7d5a1b]">
+            Wildcard ✨
+          </span>
+        )}
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-5">
@@ -254,36 +256,34 @@ function MyClubs({
   );
 }
 
-export default function ClubSwipe({ onRetake }) {
+export default function ClubSwipe({ onRetake, onShowMore, onSeeMyClubs }) {
   const {
     profile,
     deadlines,
-    quizAnswers,
+    clubShortlist,
+    shortlistSeenIds,
     likedClubIds,
     clubMatches,
     clubCopies,
     actions,
   } = useApp();
   const forecast = useMemo(() => buildForecast(deadlines), [deadlines]);
-  const courseCodes = useMemo(
-    () => [...new Set([...profile.completedCourses, ...deadlines.map((item) => item.course)])],
-    [profile.completedCourses, deadlines]
-  );
   const defaultEventWeather = nextEventWeather(forecast, profile.currentWeek);
   const [skipped, setSkipped] = useState([]);
   const [exitDirection, setExitDirection] = useState(1);
-  const [copyLoading, setCopyLoading] = useState(false);
-  const copyRequestRef = useRef("");
   const swipeLockRef = useRef(false);
   const reduce = useReducedMotion();
 
-  const ranked = useMemo(
-    () => rankedClubs(clubs, quizAnswers || {}, forecast, courseCodes),
-    [quizAnswers, forecast, courseCodes]
-  );
+  const ranked = clubShortlist;
   const deck = useMemo(
-    () => ranked.filter((club) => !likedClubIds.includes(club.id) && !skipped.includes(club.id)),
-    [ranked, likedClubIds, skipped]
+    () =>
+      ranked.filter(
+        (club) =>
+          !likedClubIds.includes(club.id) &&
+          !shortlistSeenIds.includes(club.id) &&
+          !skipped.includes(club.id)
+      ),
+    [ranked, likedClubIds, shortlistSeenIds, skipped]
   );
   const top = deck[0];
   const next = deck[1];
@@ -292,48 +292,22 @@ export default function ClubSwipe({ onRetake }) {
     swipeLockRef.current = false;
   }, [top?.id]);
 
-  useEffect(() => {
-    if (!quizAnswers) return;
-    const key = `${JSON.stringify(quizAnswers)}|${courseCodes.join(",")}`;
-    if (copyRequestRef.current === key) return;
-    copyRequestRef.current = key;
-    let cancelled = false;
-    setCopyLoading(true);
-    (async () => {
-      let result;
-      try {
-        result = await postJSON("/api/club-copy", {
-          quizAnswers,
-          courses: courseCodes,
-          clubs,
-        });
-      } catch {
-        result = localClubCopy(quizAnswers, clubs);
-      }
-      if (!cancelled) {
-        actions.mergeClubCopies(result);
-        setCopyLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [quizAnswers, courseCodes, actions]);
-
   function finishSwipe(club, direction) {
     if (!club || swipeLockRef.current) return;
     swipeLockRef.current = true;
     setExitDirection(direction);
     if (direction > 0) {
-      const copy = clubCopies[club.id] || { bio: club.description, why: club.why };
-      actions.likeClub(club.id, club.match, copy);
+      actions.likeClub(club.id, club.match, { bio: club.bio, why: club.why });
+      actions.markClubSeen(club.id);
     } else {
       setSkipped((current) => [...current, club.id]);
+      actions.markClubSeen(club.id);
     }
   }
 
   function removeClub(id) {
     actions.removeMatch(id);
+    actions.markClubSeen(id);
     setSkipped((current) => (current.includes(id) ? current : [...current, id]));
   }
 
@@ -355,10 +329,8 @@ export default function ClubSwipe({ onRetake }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [top, clubCopies]);
 
-  const topBio = top ? clubCopies[top.id]?.bio || top.description : "";
-  const topWhy = top
-    ? clubCopies[top.id]?.why || top.why || "A good fit for your interests and schedule."
-    : "";
+  const topBio = top ? top.bio || top.description : "";
+  const topWhy = top ? top.why || "A good fit for your interests and schedule." : "";
   const eventWeek = top?.nextEvent?.week;
   const cardWeather =
     forecast.find((week) => week.week === eventWeek)?.weather || defaultEventWeather;
@@ -373,12 +345,6 @@ export default function ClubSwipe({ onRetake }) {
           </h1>
           <p className="mt-1 text-sm font-medium text-meadow-sub">
             Based on your vibe, courses, and sunny weeks.
-            {copyLoading && (
-              <span className="ml-2 inline-flex items-center gap-1">
-                <Sparkles size={13} aria-hidden="true" />
-                Writing match notes...
-              </span>
-            )}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -434,11 +400,11 @@ export default function ClubSwipe({ onRetake }) {
           </AnimatePresence>
           {!top && (
             <div className="absolute inset-0 z-0 flex flex-col items-center justify-center rounded-[28px] border border-meadow-ink/10 bg-white/65 p-6 text-center shadow-[0_20px_60px_-36px_rgba(17,20,13,0.5)]">
-              <h2 className="text-2xl font-black tracking-tight">That's everyone for now ✨</h2>
+              <h2 className="text-2xl font-black tracking-tight">That's your shortlist ✨</h2>
               <div className="mt-4 flex flex-wrap justify-center gap-2">
                 <button
                   type="button"
-                  onClick={scrollToMyClubs}
+                  onClick={onSeeMyClubs || scrollToMyClubs}
                   className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#3d6b43] px-5 text-sm font-extrabold text-white transition hover:bg-[#315637] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3d6b43]"
                 >
                   <Heart size={16} aria-hidden="true" />
@@ -446,11 +412,11 @@ export default function ClubSwipe({ onRetake }) {
                 </button>
                 <button
                   type="button"
-                  onClick={onRetake}
+                  onClick={onShowMore}
                   className="inline-flex min-h-11 items-center gap-2 rounded-full border border-meadow-ink/20 bg-white/70 px-5 text-sm font-extrabold text-meadow-ink transition hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-meadow-olive"
                 >
-                  <RotateCcw size={16} aria-hidden="true" />
-                  Retake quiz
+                  <Sparkles size={16} aria-hidden="true" />
+                  Show me more
                 </button>
               </div>
             </div>
