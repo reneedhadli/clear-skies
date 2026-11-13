@@ -284,6 +284,8 @@ Liked clubs: ${JSON.stringify(
   }
 });
 
+require("./degree/routes")(app);
+
 app.use((error, _req, res, _next) => {
   console.error("[server]", error.message);
   res.status(500).json({ error: "Something went wrong. The demo fallback will cover it." });

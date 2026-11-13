@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "node --watch index.js",
     "start": "node index.js",
-    "dev:secure": "op run --env-file=.env -- node index.js"
+    "dev:secure": "op run --env-file=.env -- node index.js",
+    "test:degree": "node degree/test.js",
+    "build-catalogue": "node degree/build-catalogue.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

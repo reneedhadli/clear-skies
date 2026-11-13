@@ -5,3 +5,5 @@ dist/
 server/.env
 .env
 .vite/
+
+server/data/catalogue.cache.json
