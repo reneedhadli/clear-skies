@@ -40,26 +40,75 @@ export default function SyllabusModal({ open, onClose, onAdded }) {
     if (fileRef.current) fileRef.current.value = "";
   }
 
-  async function handleFile(event) {
-    const file = event.target.files?.[0];
+  async function handleFile(file) {
     if (!file) return;
-    if (!file.name.toLowerCase().endsWith(".txt") && file.type !== "text/plain") {
-      setError("Please upload a .txt file. You can also paste the syllabus text.");
+    setText("");
+    setFileName("");
+    setSampleLoaded(false);
+    setError("");
+    const isPdf = file.name.toLowerCase().endsWith(".pdf") || file.type === "application/pdf";
+    const isText = file.name.toLowerCase().endsWith(".txt") || file.type === "text/plain";
+    if (!isPdf && !isText) {
+      setError("Please upload a .pdf or .txt file. You can also paste the syllabus text.");
       return;
     }
     if (file.size > 1.5 * 1024 * 1024) {
-      setError("That file is a little too big. Try a smaller .txt file.");
+      setError("That file is a little too big. Try a smaller syllabus file.");
       return;
     }
+    setLoading(true);
+    setError("");
     try {
-      const content = await file.text();
+      let content;
+      if (isPdf) {
+        const [pdfjsLib, worker] = await Promise.all([
+          import("pdfjs-dist"),
+          import("pdfjs-dist/build/pdf.worker.min.mjs?url"),
+        ]);
+        pdfjsLib.GlobalWorkerOptions.workerSrc = worker.default;
+        const document = await pdfjsLib.getDocument({
+          data: await file.arrayBuffer(),
+        }).promise;
+        const pages = [];
+        for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
+          const page = await document.getPage(pageNumber);
+          const pageText = await page.getTextContent();
+          pages.push(pageText.items.map((item) => ("str" in item ? item.str : "")).join(" "));
+        }
+        content = pages.join("\n").trim();
+        if (!content) {
+          setText("");
+          setFileName("");
+          setError("We couldn't read text from this PDF. Try pasting the syllabus text instead.");
+          return;
+        }
+      } else {
+        content = await file.text();
+      }
       setText(content);
       setFileName(file.name);
       setSampleLoaded(false);
-      setError("");
     } catch {
-      setError("I couldn't read that file. Try pasting the text instead.");
+      setFileName("");
+      setError(
+        isPdf
+          ? "We couldn't read text from this PDF. Try pasting the syllabus text instead."
+          : "I couldn't read that file. Try pasting the text instead."
+      );
+    } finally {
+      setLoading(false);
     }
+  }
+
+  function onFileChange(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    handleFile(file);
+  }
+
+  function onDrop(event) {
+    event.preventDefault();
+    handleFile(event.dataTransfer.files?.[0]);
   }
 
   async function extract() {
@@ -106,7 +155,7 @@ export default function SyllabusModal({ open, onClose, onAdded }) {
       open={open}
       onClose={onClose}
       title="Add a syllabus"
-      subtitle="Paste the text or bring a .txt. Stormy finds every due date."
+      subtitle="Paste the text or upload a PDF or .txt. Stormy finds every due date."
       wide
       footer={
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -121,29 +170,39 @@ export default function SyllabusModal({ open, onClose, onAdded }) {
               ) : (
                 <Wand2 size={17} aria-hidden="true" />
               )}
-              {loading ? "Reading syllabus..." : "Extract deadlines"}
+              {loading ? "Reading your syllabus..." : "Extract deadlines"}
             </Button>
           </div>
         </div>
       }
     >
       <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
+        <div
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={onDrop}
+          className="rounded-2xl border border-dashed border-meadow-ink/20 bg-raised/30 p-4 sm:flex sm:items-center sm:justify-between sm:gap-4"
+        >
+          <p className="text-sm font-bold text-text">
+            Drop a PDF or .txt syllabus here, or click to choose
+          </p>
           <label
             htmlFor="syllabus-file"
-            className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-4 text-sm font-extrabold transition hover:bg-white/[0.07]"
+            className="mt-3 inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-4 text-sm font-extrabold transition hover:bg-white/[0.07] focus-within:ring-2 focus-within:ring-amber sm:mt-0"
           >
             <Upload size={17} aria-hidden="true" />
-            Upload .txt
+            Choose file
           </label>
           <input
             ref={fileRef}
             id="syllabus-file"
             type="file"
-            accept=".txt,text/plain"
-            onChange={handleFile}
+            accept=".pdf,.txt,application/pdf,text/plain"
+            onChange={onFileChange}
             className="sr-only"
+            disabled={loading}
           />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="soft" onClick={loadSamples} disabled={loading}>
             <Sparkles size={17} className="text-amber" aria-hidden="true" />
             Load sample syllabi
@@ -192,7 +251,7 @@ export default function SyllabusModal({ open, onClose, onAdded }) {
         {loading && (
           <div className="flex items-center gap-3 rounded-2xl bg-raised/60 p-4 text-sm text-muted">
             <Loader2 size={18} className="animate-spin text-amber" aria-hidden="true" />
-            Reading dates, weights, and exam weeks...
+            Reading your syllabus...
           </div>
         )}
 

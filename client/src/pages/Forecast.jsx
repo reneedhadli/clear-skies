@@ -10,10 +10,12 @@ import {
   Sun,
 } from "lucide-react";
 import MeadowLandscape from "../components/MeadowLandscape.jsx";
+import WeatherFX from "../components/WeatherFX.jsx";
 import SyllabusModal from "../components/SyllabusModal.jsx";
 import StormPlanPanel from "../components/StormPlanPanel.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import { buildForecast } from "../lib/forecast.js";
+import { TOTAL_WEEKS } from "../config/term.js";
 import { clubEventsForForecast } from "../lib/clubs.js";
 import { clubs } from "../data/clubs.js";
 import { weatherMeta } from "../lib/weather.js";
@@ -58,7 +60,7 @@ const FOOTER_LINKS = [
     links: [
       { label: "This week", to: "/" },
       { label: "Degree Map", to: "/degree" },
-      { label: "Stormy", to: "/stormy" },
+      { label: "Chat with Stormy", action: "chat" },
     ],
   },
   {
@@ -175,7 +177,7 @@ function ClubPlans({ events }) {
   );
 }
 
-export default function Forecast() {
+export default function Forecast({ onOpenChat }) {
   const { profile, syllabi, deadlines, plans, likedClubIds, actions } = useApp();
   const forecast = useMemo(() => buildForecast(deadlines), [deadlines]);
   const clubEvents = useMemo(
@@ -241,6 +243,15 @@ export default function Forecast() {
     <div className="meadow-home font-meadow text-meadow-ink">
       <section className="relative isolate overflow-hidden">
         <MeadowLandscape seed={21} />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-[1] transition-colors duration-500"
+          style={{
+            background: hasDeadlines
+              ? `radial-gradient(ellipse at 75% 38%, ${meta.glow}22, transparent 62%)`
+              : "transparent",
+          }}
+        />
         <div className="relative z-10 mx-auto flex min-h-[calc(100svh-77px)] w-full max-w-7xl flex-col px-4 pb-12 pt-8 sm:px-6 sm:pb-16 sm:pt-12 lg:pt-14">
           <header className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(380px,30rem)] lg:items-start lg:gap-16">
             <div className="max-w-2xl">
@@ -249,17 +260,24 @@ export default function Forecast() {
                 style={{ animationDelay: "40ms" }}
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-meadow-olive" aria-hidden="true" />
-                {profile.year} · {profile.program}
+                {profile.program}
+                {profile.year ? ` · Year ${profile.year}` : ""}
               </p>
 
               <h1
                 className="mt-5 animate-meadow-rise text-[clamp(3.7rem,8.5vw,7.4rem)] font-semibold leading-[0.86] tracking-[-0.06em] text-meadow-ink"
                 style={{ animationDelay: "110ms" }}
               >
-                Hey{" "}
-                <span className="font-meadow-serif font-normal italic tracking-[-0.035em]">
-                  {profile.name}
-                </span>{" "}
+                {profile.name ? (
+                  <>
+                    Hey{" "}
+                    <span className="font-meadow-serif font-normal italic tracking-[-0.035em]">
+                      {profile.name}
+                    </span>
+                  </>
+                ) : (
+                  "Hey there"
+                )}{" "}
                 <span className="text-[0.62em] align-[0.12em]" aria-hidden="true">
                   👋
                 </span>
@@ -281,10 +299,17 @@ export default function Forecast() {
                 className="mt-7 flex animate-meadow-rise flex-wrap items-center gap-3"
                 style={{ animationDelay: "250ms" }}
               >
-                <MeadowButton onClick={() => setModalOpen(true)}>
-                  <Plus size={18} aria-hidden="true" />
-                  Add syllabus
-                </MeadowButton>
+                {!hasDeadlines ? (
+                  <MeadowButton onClick={actions.loadDemo}>
+                    <Sparkles size={17} aria-hidden="true" />
+                    Load demo student
+                  </MeadowButton>
+                ) : (
+                  <MeadowButton onClick={() => setModalOpen(true)}>
+                    <Plus size={18} aria-hidden="true" />
+                    Add syllabus
+                  </MeadowButton>
+                )}
                 <span className="text-xs font-bold tracking-wide text-meadow-sub/75">
                   No account needed
                 </span>
@@ -303,7 +328,6 @@ export default function Forecast() {
                   />
                   <div className="relative">
                     <div className="flex items-center justify-between gap-4">
-                      <MeadowChip tone="olive">Your forecast is waiting</MeadowChip>
                       <span className="grid h-11 w-11 place-items-center rounded-full bg-meadow-olive/10 text-meadow-olive">
                         <CloudSun size={25} strokeWidth={1.6} aria-hidden="true" />
                       </span>
@@ -313,7 +337,7 @@ export default function Forecast() {
                       No syllabus, no weather yet
                     </h2>
                     <p className="mt-3 text-sm font-medium leading-relaxed text-meadow-sub sm:text-base">
-                      Stormy says: “Add your first syllabus to see your forecast ☁️”
+                      Stormy says: “Add your first syllabus and I'll show your forecast ☁️”
                     </p>
 
                     <div className="mt-6 flex flex-wrap gap-2.5">
@@ -321,25 +345,48 @@ export default function Forecast() {
                         <Plus size={17} aria-hidden="true" />
                         Add syllabus
                       </MeadowButton>
-                      <MeadowButton variant="outline" onClick={actions.loadDemo}>
-                        <Sparkles size={17} className="text-[#a97722]" aria-hidden="true" />
-                        Load demo student
-                      </MeadowButton>
                     </div>
-                    <p className="mt-4 text-[11px] font-semibold leading-relaxed text-meadow-sub/70">
-                      No AI key? The full demo still works with offline fallbacks.
-                    </p>
                     <ClubPlans events={selectedClubEvents} />
+                    <div className="mt-6 border-t border-meadow-ink/10 pt-4">
+                      <p className="text-sm font-extrabold text-meadow-ink">
+                        Your semester will look like this
+                      </p>
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none mt-3 flex gap-2 opacity-55 blur-[1.5px] select-none"
+                      >
+                        {[
+                          ["☀️", "Sunny"],
+                          ["⛅", "Cloudy"],
+                          ["⛈️", "Storm"],
+                          ["❄️", "Blizzard"],
+                        ].map(([emoji, label], index) => (
+                          <span
+                            key={label}
+                            className={`flex min-h-[72px] min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-2xl border px-1 text-center ${
+                              index === 2
+                                ? "border-[#6b5bd6]/20 bg-[#6b5bd6]/[0.08]"
+                                : "border-meadow-ink/10 bg-white/40"
+                            }`}
+                          >
+                            <span className="text-xl">{emoji}</span>
+                            <span className="text-[10px] font-bold">{label}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
               ) : (
                 <article
                   key={selected.week}
-                  className="relative overflow-hidden rounded-[32px] border border-meadow-ink/10 bg-[#fbfbf6]/85 p-5 shadow-[0_30px_90px_-36px_rgba(17,20,13,0.65)] backdrop-blur-xl sm:p-7"
+                  className="relative isolate overflow-hidden rounded-[32px] border border-meadow-ink/10 bg-[#fbfbf6]/85 p-5 shadow-[0_30px_90px_-36px_rgba(17,20,13,0.65)] backdrop-blur-xl sm:p-7"
                   aria-label={`Week ${selected.week} forecast`}
                 >
+                  <WeatherFX weather={selected.weather} className="z-0 opacity-45" />
+                  <div className="relative z-10">
                   <div
-                    className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#a97722] via-[#8fa16b] to-[#4d5d2c]"
+                    className="absolute inset-x-0 top-0 z-10 h-1 bg-gradient-to-r from-[#a97722] via-[#8fa16b] to-[#4d5d2c]"
                     aria-hidden="true"
                   />
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -355,7 +402,7 @@ export default function Forecast() {
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <MeadowChip>Week {selected.week} of 15</MeadowChip>
+                      <MeadowChip>Week {selected.week} of {TOTAL_WEEKS}</MeadowChip>
                       {selected.week === profile.currentWeek && (
                         <MeadowChip tone="amber">This week</MeadowChip>
                       )}
@@ -463,18 +510,16 @@ export default function Forecast() {
                       </MeadowChip>
                     )}
                   </div>
+                  </div>
                 </article>
               )}
             </div>
           </header>
 
-          <div className="mt-auto flex items-end justify-between gap-4 pt-14 text-[10px] font-bold uppercase tracking-[0.2em] text-[#eef1e6]/70">
+          <div className="mt-auto flex items-end justify-between gap-4 pt-14 text-[10px] font-bold tracking-wide text-[#eef1e6]/70">
             <span className="flex items-center gap-2">
               <ArrowDown size={14} aria-hidden="true" />
-              {hasDeadlines ? "Scroll for your semester" : "Your forecast is waiting"}
-            </span>
-            <span className="hidden sm:inline">
-              {profile.term} · Week {profile.currentWeek}
+              {hasDeadlines ? "Scroll for your semester" : "Start with a syllabus or demo"}
             </span>
           </div>
         </div>
@@ -496,7 +541,7 @@ export default function Forecast() {
                 </p>
               </div>
               <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-bold text-[#c7cfba]">
-                15 weeks · {profile.term}
+                {TOTAL_WEEKS} weeks · {profile.term}
               </span>
             </div>
 
@@ -537,9 +582,14 @@ export default function Forecast() {
                     </span>
                     {week.week === profile.currentWeek && (
                       <span
-                        className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-[#b8862e]"
-                        aria-hidden="true"
-                      />
+                        className={`absolute right-1 top-1 rounded-full px-1.5 py-0.5 text-[8px] font-extrabold ${
+                          active
+                            ? "bg-meadow-olive/15 text-meadow-olive"
+                            : "bg-[#b8862e]/20 text-[#e2bd77]"
+                        }`}
+                      >
+                        This week
+                      </span>
                     )}
                     {clubEventCounts[week.week] > 0 && (
                       <span className="absolute bottom-1.5 right-2 text-[10px]" aria-hidden="true">
@@ -586,6 +636,15 @@ export default function Forecast() {
                             {link.label}
                             <ArrowUpRight size={12} aria-hidden="true" />
                           </Link>
+                        ) : link.action === "chat" ? (
+                          <button
+                            type="button"
+                            onClick={onOpenChat}
+                            className="inline-flex items-center gap-1 text-sm font-semibold text-[#d8ddcf] transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#eef1e6]"
+                          >
+                            {link.label}
+                            <ArrowUpRight size={12} aria-hidden="true" />
+                          </button>
                         ) : (
                           <span className="text-sm font-medium text-[#8f9b84]">
                             {link.label}

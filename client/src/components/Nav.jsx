@@ -5,7 +5,6 @@ import {
   CloudSun,
   GraduationCap,
   Heart,
-  MessageCircle,
   RotateCcw,
   Sparkles,
 } from "lucide-react";
@@ -14,7 +13,6 @@ import { useApp } from "../context/AppContext.jsx";
 export const tabs = [
   { to: "/", label: "Forecast", icon: CloudSun, end: true },
   { to: "/degree", label: "Degree Map", icon: GraduationCap },
-  { to: "/stormy", label: "Stormy", icon: MessageCircle },
   { to: "/clubs", label: "Clubs", icon: Heart },
 ];
 
@@ -109,7 +107,7 @@ export default function Nav({ meadow = false }) {
                   meadow ? "text-meadow-sub/70" : "text-muted"
                 }`}
               >
-                this week to graduation
+                See the storms coming
               </span>
             </span>
           </Link>
@@ -170,14 +168,15 @@ export default function Nav({ meadow = false }) {
                           meadow ? "text-meadow-ink" : ""
                         }`}
                       >
-                        {profile.name}
+                        {profile.name || "Your profile"}
                       </p>
                       <p
                         className={`truncate text-xs ${
                           meadow ? "text-meadow-sub" : "text-muted"
                         }`}
                       >
-                        {profile.year} · {profile.program}
+                        {profile.program}
+                        {profile.year ? ` · Year ${profile.year}` : ""}
                       </p>
                     </div>
                   </div>

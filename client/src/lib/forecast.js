@@ -1,4 +1,6 @@
-export const TOTAL_WEEKS = 15;
+import { TOTAL_WEEKS } from "../config/term.js";
+
+export { TOTAL_WEEKS };
 
 export function buildForecast(deadlines = []) {
   return Array.from({ length: TOTAL_WEEKS }, (_, index) => {

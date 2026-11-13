@@ -132,6 +132,7 @@ app.post("/api/chat", async (req, res) => {
 ${history.map((item) => `${item.role}: ${item.content}`).join("\n") || "(new conversation)"}
 
 Student: ${JSON.stringify(context.profile || {})}
+Current page: ${context.page || "forecast"}
 Current week: ${context.currentWeek || 1}
 This week's forecast: ${JSON.stringify(
       (context.forecast || []).find((week) => week.week === Number(context.currentWeek))

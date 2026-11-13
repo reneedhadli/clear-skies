@@ -78,7 +78,6 @@ const DEFAULT_COLUMNS = [
     links: [
       { label: "This week", href: "/" },
       { label: "Degree Map", href: "/degree" },
-      { label: "Stormy", href: "/stormy" },
     ],
   },
   {

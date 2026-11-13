@@ -258,7 +258,6 @@ export default function ClubSwipe({ onRetake }) {
   const {
     profile,
     deadlines,
-    completedCourses,
     quizAnswers,
     likedClubIds,
     clubMatches,
@@ -267,8 +266,8 @@ export default function ClubSwipe({ onRetake }) {
   } = useApp();
   const forecast = useMemo(() => buildForecast(deadlines), [deadlines]);
   const courseCodes = useMemo(
-    () => [...new Set([...completedCourses, ...deadlines.map((item) => item.course)])],
-    [completedCourses, deadlines]
+    () => [...new Set([...profile.completedCourses, ...deadlines.map((item) => item.course)])],
+    [profile.completedCourses, deadlines]
   );
   const defaultEventWeather = nextEventWeather(forecast, profile.currentWeek);
   const [skipped, setSkipped] = useState([]);

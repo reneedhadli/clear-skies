@@ -1,11 +1,11 @@
-import { useEffect } from "react";
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import Nav from "./components/Nav.jsx";
 import MeadowLandscape from "./components/MeadowLandscape.jsx";
 import Forecast from "./pages/Forecast.jsx";
 import DegreeMap from "./pages/DegreeMap.jsx";
-import Stormy from "./pages/Stormy.jsx";
 import Clubs from "./pages/Clubs.jsx";
+import FloatingStormy from "./components/FloatingStormy.jsx";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -17,7 +17,17 @@ function ScrollToTop() {
 
 export default function App() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const [chatOpen, setChatOpen] = useState(false);
   const isHome = pathname === "/";
+  const page =
+    pathname === "/degree" ? "degree" : pathname === "/clubs" ? "clubs" : "forecast";
+
+  useEffect(() => {
+    if (pathname !== "/stormy") return;
+    setChatOpen(true);
+    navigate("/", { replace: true });
+  }, [pathname, navigate]);
 
   return (
     <div className="relative min-h-dvh overflow-x-clip bg-meadow-sky">
@@ -43,14 +53,20 @@ export default function App() {
         }
       >
         <Routes>
-          <Route path="/" element={<Forecast />} />
+          <Route path="/" element={<Forecast onOpenChat={() => setChatOpen(true)} />} />
           <Route path="/degree" element={<DegreeMap />} />
-          <Route path="/stormy" element={<Stormy />} />
           <Route path="/clubs" element={<Clubs />} />
+          <Route path="/stormy" element={<Navigate to="/" replace />} />
           <Route path="/clubs/matches" element={<Navigate to="/clubs#my-clubs" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+      <FloatingStormy
+        page={page}
+        open={chatOpen}
+        onOpen={() => setChatOpen(true)}
+        onClose={() => setChatOpen(false)}
+      />
     </div>
   );
 }

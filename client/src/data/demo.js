@@ -1,10 +1,8 @@
 export const demoProfile = {
   name: "Maya",
   avatar: "🦊",
-  year: "2nd year",
+  year: 2,
   program: "Computing Science",
-  term: "Fall term",
-  currentWeek: 6,
 };
 
 export const demoDeadlines = [
@@ -71,6 +69,7 @@ export const demoSyllabi = [
 export const demoCompleted = [
   "CMPUT 174",
   "CMPUT 175",
+  "MATH 125",
   "MATH 144",
   "STAT 151",
   "PSYCH 104",

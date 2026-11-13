@@ -8,7 +8,7 @@ Built for HackED Beta at the University of Alberta.
 
 ## What is in the demo
 
-- **Forecast**: Add `.txt` syllabi or load four sample U of A courses. Each week gets a weather state, stress score, and due list.
+- **Forecast**: Add PDF or `.txt` syllabi (or paste syllabus text), or load four sample U of A courses. Each week gets a weather state, stress score, and due list.
 - **Stormy**: Chat with your semester weather assistant, who knows your deadlines, suggests lighter next-term courses, and can add them to your plan.
 - **Club Match**: A short vibe quiz ranks real U of A clubs by interests, course overlap, and how well their meeting time fits your calendar.
 - **Degree Map**: Finished, available, and locked courses with SVG prerequisite lines. Mark courses complete and watch what unlocks.
@@ -26,7 +26,7 @@ npm run dev
 
 Open `http://localhost:5173`. The Vite dev server proxies `/api` to `http://localhost:3001`.
 
-To load the full demo instantly, choose **Load demo student** on the empty forecast. The demo is Maya, a Fall-term student in week 6 with four courses, completed prerequisites, quiz answers, and three liked clubs.
+To load the full demo instantly, choose **Load demo student** on the empty forecast. The demo is Maya, a second-year Computing Science student with four current syllabi, completed prerequisites, and quiz answers for club matching. The current week is calculated from `client/src/config/term.js`; set `TERM_START_DATE` to the real first day of classes.
 
 ## AI setup
 

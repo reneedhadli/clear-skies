@@ -8,27 +8,29 @@ import {
   demoSyllabi,
 } from "../data/demo.js";
 import { clubs } from "../data/clubs.js";
+import { getCurrentWeek, TERM_NAME } from "../config/term.js";
 
 const STORAGE_KEY = "clear-skies-v1";
 
 const initialState = {
   profile: {
-    name: "friend",
+    name: "",
     avatar: "🌙",
-    year: "U of A student",
-    program: "Undecided",
-    term: "Fall term",
-    currentWeek: 6,
+    year: null,
+    program: "Computing Science",
+    term: TERM_NAME,
+    currentWeek: getCurrentWeek(),
+    completedCourses: [],
+    nextTermCourses: [],
   },
   syllabi: [],
   deadlines: [],
-  completedCourses: [],
-  nextTerm: [],
   quizAnswers: null,
   likedClubIds: [],
   clubMatches: {},
   joinedClubIds: [],
   clubCopies: {},
+  chatMessages: [],
   plans: {},
   demoLoaded: false,
 };
@@ -42,10 +44,38 @@ function readStoredState() {
     const parsed = JSON.parse(raw);
     const validClubIds = new Set(clubs.map((club) => club.id));
     const likedClubIds = (parsed.likedClubIds || []).filter((id) => validClubIds.has(id));
+    const storedProfile = parsed.profile || {};
+    const {
+      completedCourses: legacyCompleted = [],
+      nextTerm: legacyNextTerm = [],
+      ...storedState
+    } = parsed;
+    const demoLoaded = Boolean(parsed.demoLoaded);
     return {
       ...initialState,
-      ...parsed,
+      ...storedState,
+      demoLoaded,
+      profile: {
+        ...initialState.profile,
+        ...storedProfile,
+        name: demoLoaded ? storedProfile.name || "Maya" : "",
+        program: demoLoaded ? storedProfile.program || "Computing Science" : "Computing Science",
+        year: demoLoaded ? Number(storedProfile.year) || 2 : null,
+        term: TERM_NAME,
+        currentWeek: getCurrentWeek(),
+        completedCourses: Array.isArray(storedProfile.completedCourses)
+          ? storedProfile.completedCourses
+          : Array.isArray(legacyCompleted)
+            ? legacyCompleted
+            : [],
+        nextTermCourses: Array.isArray(storedProfile.nextTermCourses)
+          ? storedProfile.nextTermCourses.slice(0, 5)
+          : Array.isArray(legacyNextTerm)
+            ? legacyNextTerm.slice(0, 5)
+            : [],
+      },
       likedClubIds,
+      chatMessages: Array.isArray(parsed.chatMessages) ? parsed.chatMessages : [],
       clubMatches: Object.fromEntries(
         Object.entries(parsed.clubMatches || {}).filter(([id]) => validClubIds.has(id))
       ),
@@ -97,19 +127,36 @@ export function AppProvider({ children }) {
       },
       toggleCompleted(code) {
         setState((prev) => {
-          const has = prev.completedCourses.includes(code);
+          const completedCourses = prev.profile.completedCourses;
+          const has = completedCourses.includes(code);
           return {
             ...prev,
-            completedCourses: has
-              ? prev.completedCourses.filter((item) => item !== code)
-              : [...prev.completedCourses, code],
+            profile: {
+              ...prev.profile,
+              completedCourses: has
+                ? completedCourses.filter((item) => item !== code)
+                : [...completedCourses, code],
+            },
           };
         });
       },
       addToNextTerm(code) {
+        setState((prev) => {
+          const nextTermCourses = prev.profile.nextTermCourses;
+          if (nextTermCourses.includes(code) || nextTermCourses.length >= 5) return prev;
+          return {
+            ...prev,
+            profile: { ...prev.profile, nextTermCourses: [...nextTermCourses, code] },
+          };
+        });
+      },
+      removeFromNextTerm(code) {
         setState((prev) => ({
           ...prev,
-          nextTerm: prev.nextTerm.includes(code) ? prev.nextTerm : [...prev.nextTerm, code],
+          profile: {
+            ...prev.profile,
+            nextTermCourses: prev.profile.nextTermCourses.filter((item) => item !== code),
+          },
         }));
       },
       savePlan(week, plan) {
@@ -167,13 +214,27 @@ export function AppProvider({ children }) {
           };
         });
       },
+      addChatMessage(message) {
+        setState((prev) => ({
+          ...prev,
+          chatMessages: [...prev.chatMessages, message],
+        }));
+      },
+      clearChat() {
+        setState((prev) => ({ ...prev, chatMessages: [] }));
+      },
       loadDemo() {
         setState({
           ...initialState,
-          profile: demoProfile,
+          profile: {
+            ...demoProfile,
+            term: TERM_NAME,
+            currentWeek: getCurrentWeek(),
+            completedCourses: demoCompleted,
+            nextTermCourses: [],
+          },
           syllabi: demoSyllabi,
           deadlines: demoDeadlines,
-          completedCourses: demoCompleted,
           quizAnswers: demoQuizAnswers,
           likedClubIds: [],
           clubMatches: {},
