@@ -12,6 +12,7 @@ import Chip from "../components/Chip.jsx";
 import SidePanel from "../components/SidePanel.jsx";
 import WeatherIcon from "../components/WeatherIcon.jsx";
 import { useApp } from "../context/AppContext.jsx";
+import DegreePathways from "../components/DegreePathways.jsx";
 import { courses } from "../data/courses.js";
 import {
   availableCourses,
@@ -267,6 +268,8 @@ export default function DegreeMap() {
           </div>
         </div>
       </header>
+
+      <DegreePathways completed={completedCourses} defaultMajor={profile.program} />
 
       <Card className="mt-6 overflow-hidden p-4 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-muted">

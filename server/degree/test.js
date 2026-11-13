@@ -1,5 +1,13 @@
 "use strict";
 process.env.CATALOGUE_LIVE = "0"; // tests never touch the network
+// tests use a throwaway cache file, never the real server/data/catalogue.cache.json
+const TEST_CACHE = require("node:path").join(require("node:os").tmpdir(), `clear-skies-test-cache-${process.pid}.json`);
+process.env.CATALOGUE_CACHE_PATH = TEST_CACHE;
+process.on("exit", () => {
+  try {
+    require("node:fs").unlinkSync(TEST_CACHE);
+  } catch {}
+});
 const assert = require("node:assert/strict");
 const prereq = require("./prereq");
 const catalogue = require("./catalogue");
@@ -244,6 +252,20 @@ const check = (name, fn) =>
     });
     const termOf = (code) => plan.terms.findIndex((t) => t.courses.some((c) => c.code === code));
     assert.ok(termOf("CMPUT 201") !== -1 && termOf("CMPUT 201") <= termOf("CMPUT 291"));
+  });
+
+  await check("never plans two courses that block each other (CMPUT 101 vs 174)", async () => {
+    const plan = await planPathway({
+      name: "t",
+      goals: ["CMPUT 304", "CMPUT 301"],
+      completed: [],
+      lookup,
+      startTerm: "Winter 2027",
+    });
+    const all = plan.terms.flatMap((term) => term.courses.map((c) => c.code));
+    assert.ok(all.includes("CMPUT 174"));
+    assert.ok(!all.includes("CMPUT 101"), "101 is blocked by 174, so it must not be planned");
+    assert.ok(all.includes("CMPUT 304") && all.includes("CMPUT 301"));
   });
 
   // ---- the HTTP routes ---------------------------------------------------------

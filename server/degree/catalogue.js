@@ -11,7 +11,7 @@ const path = require("node:path");
 const { parseRequirement, extractCodes, normalizeCode } = require("./prereq");
 
 const SEED_PATH = path.join(__dirname, "../data/catalogue.json");
-const CACHE_PATH = path.join(__dirname, "../data/catalogue.cache.json");
+const CACHE_PATH = process.env.CATALOGUE_CACHE_PATH || path.join(__dirname, "../data/catalogue.cache.json");
 const BASE_URL = "https://apps.ualberta.ca/catalogue/course";
 
 let seed = null;
@@ -211,7 +211,7 @@ function setFetch(fn) {
 
 function resetForTests() {
   memory.clear();
-  cache = { };
+  cache = null;
   seed = null;
   liveFailures = 0;
   liveOffUntil = 0;

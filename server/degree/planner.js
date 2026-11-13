@@ -24,7 +24,7 @@ function termName(startTerm, index) {
 
 // Work out which courses a student still needs for the goals.
 // For every "one of" group, pick the option that needs the fewest extra courses.
-async function resolveGoals({ goals, done, lookup }) {
+async function resolveGoals({ goals, done, lookup, avoid = new Set() }) {
   const picks = new Map(); // code -> { entry, pre: [codes], co: [codes] }
   const choices = [];
   const unknown = [];
@@ -37,6 +37,7 @@ async function resolveGoals({ goals, done, lookup }) {
 
   async function cost(code, stack) {
     if (done.has(code)) return 0;
+    if (avoid.has(code)) return Infinity;
     if (costMemo.has(code)) return costMemo.get(code);
     if (stack.has(code)) return Infinity;
     const entry = await lookup(code);
@@ -45,7 +46,8 @@ async function resolveGoals({ goals, done, lookup }) {
       return Infinity;
     }
     stack.add(code);
-    let total = entry.prereqKnown === false ? 1.5 : 1;
+    // courses whose prerequisites we could not check are a last resort
+    let total = entry.prereqKnown === false ? 4 : 1;
     for (const group of unmetGroups(entry.prereq, done)) {
       let best = Infinity;
       for (const option of group.oneOf) best = Math.min(best, await cost(option, stack));
@@ -98,6 +100,18 @@ async function resolveGoals({ goals, done, lookup }) {
     else await expand(goal);
   }
   return { picks, choices, unknown, blocked, notFound, alreadyDone };
+}
+
+function findConflict(resolved, goals) {
+  const pickedAsOption = new Set(resolved.choices.map((choice) => choice.picked));
+  for (const [code, record] of resolved.picks) {
+    for (const other of record.entry.antireqs) {
+      if (!resolved.picks.has(other)) continue;
+      const avoidable = [code, other].find((c) => pickedAsOption.has(c) && !goals.includes(c));
+      return { a: code, b: other, avoidable: avoidable || null };
+    }
+  }
+  return null;
 }
 
 function schedule({ picks, goals, done, startTerm, maxPerTerm, maxTerms }) {
@@ -169,7 +183,22 @@ function schedule({ picks, goals, done, startTerm, maxPerTerm, maxTerms }) {
 async function planPathway({ name, why, goals, completed, lookup, startTerm, maxPerTerm, maxTerms }) {
   const done = new Set(completed.map(normalizeCode));
   const goalCodes = [...new Set(goals.map(normalizeCode))];
-  const resolved = await resolveGoals({ goals: goalCodes, done, lookup });
+  // If two chosen courses block each other for credit (e.g. CMPUT 101 and CMPUT 174),
+  // avoid the one that was only picked as an "or" option, then resolve again.
+  const avoid = new Set();
+  let resolved;
+  let conflictLeft = null;
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    resolved = await resolveGoals({ goals: goalCodes, done, lookup, avoid });
+    const conflict = findConflict(resolved, goalCodes);
+    if (!conflict) {
+      conflictLeft = null;
+      break;
+    }
+    conflictLeft = conflict;
+    if (!conflict.avoidable) break;
+    avoid.add(conflict.avoidable);
+  }
   const { terms, unscheduled } = schedule({
     picks: resolved.picks,
     goals: goalCodes,
@@ -186,6 +215,11 @@ async function planPathway({ name, why, goals, completed, lookup, startTerm, max
   }
   if (unscheduled.length) {
     warnings.push(`Could not fit ${unscheduled.join(", ")} within ${maxTerms || DEFAULT_MAX_TERMS} terms.`);
+  }
+  if (conflictLeft && !conflictLeft.avoidable) {
+    warnings.push(
+      `${conflictLeft.a} and ${conflictLeft.b} cannot both be taken for credit. Pick one of them.`
+    );
   }
   if (resolved.unknown.length) {
     warnings.push(
