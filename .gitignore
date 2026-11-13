@@ -7,3 +7,5 @@ server/.env
 .vite/
 
 server/data/catalogue.cache.json
+server/data/pathways.cache.json
+server/data/ai-cache.json

@@ -3,9 +3,19 @@ process.env.CATALOGUE_LIVE = "0"; // tests never touch the network
 // tests use a throwaway cache file, never the real server/data/catalogue.cache.json
 const TEST_CACHE = require("node:path").join(require("node:os").tmpdir(), `clear-skies-test-cache-${process.pid}.json`);
 process.env.CATALOGUE_CACHE_PATH = TEST_CACHE;
+const TEST_PATHWAYS = require("node:path").join(require("node:os").tmpdir(), `clear-skies-test-pathways-${process.pid}.json`);
+process.env.PATHWAYS_CACHE_PATH = TEST_PATHWAYS;
+const TEST_AI = require("node:path").join(require("node:os").tmpdir(), `clear-skies-test-ai-${process.pid}.json`);
+process.env.AI_CACHE_PATH = TEST_AI;
 process.on("exit", () => {
   try {
     require("node:fs").unlinkSync(TEST_CACHE);
+  } catch {}
+  try {
+    require("node:fs").unlinkSync(TEST_PATHWAYS);
+  } catch {}
+  try {
+    require("node:fs").unlinkSync(TEST_AI);
   } catch {}
 });
 const assert = require("node:assert/strict");
@@ -268,6 +278,149 @@ const check = (name, fn) =>
     assert.ok(all.includes("CMPUT 304") && all.includes("CMPUT 301"));
   });
 
+  await check("courses that are co-requisites of each other are placed together", async () => {
+    const fake = {
+      "AAA 100": { code: "AAA 100", title: "Lecture", prereqKnown: true, antireqs: [], prereq: null, coreq: { op: "course", code: "BBB 100" }, source: "verified" },
+      "BBB 100": { code: "BBB 100", title: "Lab", prereqKnown: true, antireqs: [], prereq: null, coreq: { op: "course", code: "AAA 100" }, source: "verified" },
+      "CCC 200": { code: "CCC 200", title: "Next", prereqKnown: true, antireqs: [], prereq: { op: "course", code: "AAA 100" }, coreq: null, source: "verified" },
+    };
+    const plan = await planPathway({
+      name: "t",
+      goals: ["CCC 200"],
+      completed: [],
+      lookup: async (code) => fake[code] || null,
+      startTerm: "Winter 2027",
+    });
+    assert.deepEqual(plan.terms[0].courses.map((c) => c.code).sort(), ["AAA 100", "BBB 100"]);
+    assert.equal(plan.terms[1].courses[0].code, "CCC 200");
+    assert.deepEqual(plan.terms[1].courses[0].prereqs, ["AAA 100"]);
+    assert.ok(!plan.warnings.some((w) => /Could not schedule/.test(w)));
+  });
+
+  await check("stuck courses are explained, not just listed", async () => {
+    const fake = {
+      "AAA 100": { code: "AAA 100", prereqKnown: true, antireqs: [], prereq: { op: "course", code: "BBB 100" }, coreq: null, source: "verified" },
+      "BBB 100": { code: "BBB 100", prereqKnown: true, antireqs: [], prereq: { op: "course", code: "AAA 100" }, coreq: null, source: "verified" },
+    };
+    const plan = await planPathway({ name: "t", goals: ["AAA 100"], completed: [], lookup: async (c) => fake[c] || null, startTerm: "Winter 2027" });
+    assert.ok(plan.warnings.some((w) => /Could not schedule: .*waiting on/.test(w)));
+  });
+
+  await check("AI failures get a specific, honest message", async () => {
+    const llmPath = require.resolve("../llm");
+    const real = require("../llm");
+    const express = require("express");
+    for (const [failure, expected] of [
+      [new Error("Gemini 429: quota"), "rate_limit"],
+      [new Error("Gemini 429: Quota exceeded for metric ... GenerateRequestsPerDayPerProjectPerModel"), "daily_limit"],
+      [new Error("No usable pathways returned"), "no_pathways"],
+      [new Error("No JSON found in model response"), "ai_error"],
+    ]) {
+      for (const key of Object.keys(require.cache)) {
+        if (/degree[\\/](routes|ai|suggestions)\.js$/.test(key)) delete require.cache[key];
+      }
+      require.cache[llmPath].exports = { ...real, callLLM: async () => { throw failure; } };
+      const app = express();
+      app.use(express.json());
+      require("./routes")(app);
+      const server = await new Promise((resolve) => { const s = app.listen(0, () => resolve(s)); });
+      try {
+        const r = await fetch(`http://127.0.0.1:${server.address().port}/api/degree/plan`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ major: "Engineering", completed: [] }),
+        });
+        const body = await r.json();
+        assert.equal(body.reason, expected);
+        assert.equal(body.source, "unavailable");
+      } finally {
+        server.close();
+      }
+    }
+    require.cache[llmPath].exports = real;
+    for (const key of Object.keys(require.cache)) {
+      if (/degree[\\/](routes|ai|suggestions)\.js$/.test(key)) delete require.cache[key];
+    }
+  });
+
+  await check("same major twice = one AI call (rate-limit friendly), and no AI call for the summary", async () => {
+    const llmPath = require.resolve("../llm");
+    const real = require("../llm");
+    const express = require("express");
+    for (const key of Object.keys(require.cache)) {
+      if (/degree[\\/](routes|ai|suggestions)\.js$/.test(key)) delete require.cache[key];
+    }
+    let calls = 0;
+    require.cache[llmPath].exports = {
+      ...real,
+      callLLM: async () => {
+        calls += 1;
+        return JSON.stringify({
+          pathways: [
+            { name: "A", why: "x", courses: ["CMPUT 201"] },
+            { name: "B", why: "y", courses: ["CMPUT 229"] },
+          ],
+        });
+      },
+    };
+    const app = express();
+    app.use(express.json());
+    require("./routes")(app);
+    const server = await new Promise((resolve) => { const s = app.listen(0, () => resolve(s)); });
+    const ask = () =>
+      fetch(`http://127.0.0.1:${server.address().port}/api/degree/plan`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ major: "Cache Test Major", completed: [] }),
+      }).then((r) => r.json());
+    try {
+      const first = await ask();
+      const second = await ask();
+      assert.equal(first.pathways.length, 2);
+      assert.equal(second.pathways.length, 2);
+      assert.equal(first.summary.source, "computed");
+      assert.equal(calls, 1);
+    } finally {
+      server.close();
+      require.cache[llmPath].exports = real;
+      for (const key of Object.keys(require.cache)) {
+        if (/degree[\\/](routes|ai|suggestions)\.js$/.test(key)) delete require.cache[key];
+      }
+    }
+  });
+
+  await check("AI answers are recorded and replayed (no second API call), bad answers never saved", async () => {
+    const llm = require("../llm");
+    llm.resetAiCacheForTests();
+    process.env.GEMINI_API_KEY = "test-key";
+    const realFetch = global.fetch;
+    let calls = 0;
+    let body = JSON.stringify({ ok: 1 });
+    global.fetch = async () => {
+      calls += 1;
+      return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: body }] } }] }), text: async () => "" };
+    };
+    try {
+      assert.equal(await llm.callLLM("sys", "same question"), '{"ok":1}');
+      assert.equal(await llm.callLLM("sys", "same question"), '{"ok":1}');
+      assert.equal(calls, 1, "second identical prompt must come from the cache");
+      await llm.callLLM("sys", "different question");
+      assert.equal(calls, 2);
+      body = "this is not json";
+      await llm.callLLM("sys", "bad answer");
+      await llm.callLLM("sys", "bad answer");
+      assert.equal(calls, 4, "invalid answers are never replayed");
+      process.env.AI_CACHE = "0";
+      await llm.callLLM("sys", "same question");
+      assert.equal(calls, 5, "AI_CACHE=0 turns the cache off");
+    } finally {
+      delete process.env.AI_CACHE;
+      delete process.env.GEMINI_API_KEY;
+      global.fetch = realFetch;
+      llm.resetAiCacheForTests();
+    }
+  });
+
   // ---- the HTTP routes ---------------------------------------------------------
   await check("routes: prereqs + plan with targets (no AI needed) + AI offline message", async () => {
     delete process.env.GEMINI_API_KEY;
@@ -303,6 +456,9 @@ const check = (name, fn) =>
       const c = await post("/api/degree/plan", { major: "Psychology", completed: [] });
       assert.equal(c.status, 200);
       assert.equal(c.body.source, "unavailable");
+
+      assert.match(c.body.message, /No AI key/);
+      assert.equal(c.body.reason, "no_key");
 
       const d = await post("/api/degree/plan", {});
       assert.equal(d.status, 400);

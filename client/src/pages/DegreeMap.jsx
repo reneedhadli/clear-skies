@@ -13,7 +13,7 @@ import SidePanel from "../components/SidePanel.jsx";
 import WeatherIcon from "../components/WeatherIcon.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import DegreePathways from "../components/DegreePathways.jsx";
-import { courses } from "../data/courses.js";
+import { courses as sampleCourses } from "../data/courses.js";
 import {
   availableCourses,
   courseStatus,
@@ -34,7 +34,7 @@ const STATUS_LABEL = {
   locked: "Locked",
 };
 
-function mapEdges(container, cardRefs) {
+function mapEdges(container, cardRefs, courses) {
   if (!container) return { edges: [], size: { width: 0, height: 0 } };
   const bounds = container.getBoundingClientRect();
   const columnElements = container.querySelectorAll(".degree-map-column");
@@ -120,10 +120,28 @@ export default function DegreeMap() {
   const cardRefs = useRef({});
   const [edges, setEdges] = useState([]);
   const [graphSize, setGraphSize] = useState({ width: 0, height: 0 });
+  // The map shows the pathway chosen above. Until one is chosen it shows the sample map.
+  const [mapData, setMapData] = useState(null);
+  const courses = useMemo(() => mapData?.courses ?? sampleCourses, [mapData]);
+
+  const handleMap = useCallback(
+    (next) => {
+      setMapData(next);
+      setPanel(null);
+      setHovered(null);
+      // drop next-term picks that are not on the new map
+      const codes = new Set((next?.courses ?? sampleCourses).map((course) => course.code));
+      nextTerm.forEach((code) => {
+        if (!codes.has(code)) actions.removeFromNextTerm(code);
+      });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [nextTerm.join("|")]
+  );
 
   const available = useMemo(
     () => availableCourses(courses, completedCourses),
-    [completedCourses]
+    [courses, completedCourses]
   );
   const selected =
     panel?.type === "course"
@@ -147,7 +165,7 @@ export default function DegreeMap() {
 
   const plannedCourses = useMemo(
     () => nextTerm.map((code) => courses.find((course) => course.code === code)).filter(Boolean),
-    [nextTerm]
+    [nextTerm, courses]
   );
   const nextForecast = useMemo(
     () => forecastForCourses(plannedCourses),
@@ -160,14 +178,14 @@ export default function DegreeMap() {
   const heavyCourses = plannedCourses.filter((course) => course.workload === "heavy");
   const graduationPlan = useMemo(
     () => buildGraduationTerms(courses, completedCourses),
-    [completedCourses]
+    [courses, completedCourses]
   );
 
   const recompute = useCallback(() => {
-    const result = mapEdges(containerRef.current, cardRefs);
+    const result = mapEdges(containerRef.current, cardRefs, courses);
     setEdges(result.edges);
     setGraphSize(result.size);
-  }, []);
+  }, [courses]);
 
   useLayoutEffect(() => {
     recompute();
@@ -229,7 +247,7 @@ export default function DegreeMap() {
       <header className="mt-4 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-sm font-extrabold text-muted">
-            Degree map · {profile.program}
+            Degree map · {mapData?.major || profile.program}
           </p>
           <h1 className="mt-1 text-3xl font-black tracking-tight sm:text-4xl">
             You can take{" "}
@@ -269,11 +287,13 @@ export default function DegreeMap() {
         </div>
       </header>
 
-      <DegreePathways completed={completedCourses} defaultMajor={profile.program} />
+      <DegreePathways completed={completedCourses} defaultMajor={profile.program} onMap={handleMap} />
 
       <Card className="mt-6 overflow-hidden p-4 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-muted">
-          <span>Prerequisite paths</span>
+          <span>
+            {mapData ? `Prerequisite paths · ${mapData.name} (${mapData.major})` : "Prerequisite paths · sample map. Pick your major above to see yours."}
+          </span>
           <span>{completedCourses.length} finished · {courses.length} courses</span>
         </div>
 

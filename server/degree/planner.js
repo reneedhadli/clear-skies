@@ -142,24 +142,41 @@ function schedule({ picks, goals, done, startTerm, maxPerTerm, maxTerms }) {
   for (let t = 0; t < maxTerms && remaining.size; t += 1) {
     const before = new Set([...done, ...placed]);
     const thisTerm = [];
+    const prereqReady = (code) => satisfied(picks.get(code).entry.prereq, before);
+    // Co-requisite partners that can join this term (they may need each other, so place them together).
+    const partnersFor = (code) =>
+      picks
+        .get(code)
+        .co.filter((other) => remaining.has(other) && !thisTerm.includes(other) && prereqReady(other));
+    const coreqOk = (code) => {
+      const { entry } = picks.get(code);
+      const have = new Set([...before, ...thisTerm]);
+      if (satisfied(entry.coreq, have)) return true;
+      const extra = partnersFor(code);
+      return (
+        satisfied(entry.coreq, new Set([...have, ...extra])) &&
+        thisTerm.length + 1 + extra.length <= maxPerTerm
+      );
+    };
     while (thisTerm.length < maxPerTerm) {
-      const withThis = new Set([...before, ...thisTerm]);
       const ready = [...remaining]
-        .filter((code) => {
-          const { entry } = picks.get(code);
-          return satisfied(entry.prereq, before) && satisfied(entry.coreq, withThis);
-        })
+        .filter((code) => prereqReady(code) && coreqOk(code))
         .sort((a, b) => depth(b) - depth(a) || level(a) - level(b) || a.localeCompare(b));
       if (!ready.length) break;
-      thisTerm.push(ready[0]);
-      remaining.delete(ready[0]);
+      const chosen = ready[0];
+      const have = new Set([...before, ...thisTerm]);
+      const group = satisfied(picks.get(chosen).entry.coreq, have) ? [chosen] : [chosen, ...partnersFor(chosen)];
+      for (const code of group) {
+        thisTerm.push(code);
+        remaining.delete(code);
+      }
     }
     if (!thisTerm.length) break;
     thisTerm.forEach((code) => placed.add(code));
     terms.push({
       term: termName(startTerm, t),
       courses: thisTerm.map((code) => {
-        const { entry } = picks.get(code);
+        const { entry, pre, co } = picks.get(code);
         const neededFor = (dependents.get(code) || []).filter((dep) => picks.has(dep));
         return {
           code,
@@ -167,6 +184,7 @@ function schedule({ picks, goals, done, startTerm, maxPerTerm, maxTerms }) {
           units: entry.units,
           isGoal: goals.includes(code),
           neededFor,
+          prereqs: [...new Set([...pre, ...co])], // links for the flowchart
           requirementText: entry.prereqText,
           corequisiteText: entry.coreqText,
           notes: entry.notes,
@@ -176,7 +194,15 @@ function schedule({ picks, goals, done, startTerm, maxPerTerm, maxTerms }) {
       }),
     });
   }
-  return { terms, unscheduled: [...remaining] };
+  // Say why anything is stuck, so it is never a mystery.
+  const stuck = [...remaining].map((code) => {
+    const { entry } = picks.get(code);
+    const waiting = [...unmetGroups(entry.prereq, placed), ...unmetGroups(entry.coreq, placed)]
+      .map((group) => group.oneOf.join(" / "))
+      .join("; ");
+    return waiting ? `${code} (waiting on ${waiting})` : code;
+  });
+  return { terms, unscheduled: [...remaining], stuck };
 }
 
 // One pathway: a named set of goal courses -> term-by-term plan.
@@ -199,7 +225,7 @@ async function planPathway({ name, why, goals, completed, lookup, startTerm, max
     if (!conflict.avoidable) break;
     avoid.add(conflict.avoidable);
   }
-  const { terms, unscheduled } = schedule({
+  const { terms, unscheduled, stuck } = schedule({
     picks: resolved.picks,
     goals: goalCodes,
     done,
@@ -214,7 +240,7 @@ async function planPathway({ name, why, goals, completed, lookup, startTerm, max
     warnings.push(`${item.code} is blocked: you already have credit in ${item.becauseOf.join(", ")}.`);
   }
   if (unscheduled.length) {
-    warnings.push(`Could not fit ${unscheduled.join(", ")} within ${maxTerms || DEFAULT_MAX_TERMS} terms.`);
+    warnings.push(`Could not schedule: ${stuck.join(", ")}.`);
   }
   if (conflictLeft && !conflictLeft.avoidable) {
     warnings.push(

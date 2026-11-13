@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
 import Button from "./Button.jsx";
 import Card from "./Card.jsx";
 import { planDegree } from "../lib/degreeApi.js";
 
-const SUGGESTED_MAJORS = ["Computing Science", "Chemistry", "Psychology", "Biology", "Fine Arts"];
+const SUGGESTED_MAJORS = ["Computing Science", "Chemistry", "Physics", "Psychology", "Biology", "Fine Arts"];
 
 function parseCodes(text) {
   return String(text)
@@ -13,33 +13,46 @@ function parseCodes(text) {
     .filter(Boolean);
 }
 
-function CourseRow({ course }) {
-  return (
-    <li className="rounded-xl bg-raised/60 px-3 py-2">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-2">
-        <span className="text-sm font-extrabold">
-          {course.code}
-          {course.isGoal && <span className="ml-1.5 text-xs font-bold text-amber">goal</span>}
-        </span>
-        {!course.prereqKnown && (
-          <span className="text-[11px] font-bold text-amber" title="Prerequisites could not be checked">
-            check prereqs ⚠
-          </span>
-        )}
-      </div>
-      {course.title && <p className="text-xs text-muted">{course.title}</p>}
-      {!course.isGoal && course.neededFor.length > 0 && (
-        <p className="mt-0.5 text-[11px] font-semibold text-sage">Needed for {course.neededFor.join(", ")}</p>
-      )}
-    </li>
+function levelOf(code) {
+  const number = Number(/(\d{3})/.exec(code)?.[1] || 100);
+  return Math.min(400, Math.max(100, Math.floor(number / 100) * 100));
+}
+
+// A pathway -> the course list the flowchart draws.
+function pathwayToCourses(pathway) {
+  return pathway.terms.flatMap((term) =>
+    term.courses.map((course) => ({
+      code: course.code,
+      name: course.title || course.code,
+      level: levelOf(course.code),
+      prereqs: course.prereqs || [],
+      description: course.prereqKnown
+        ? course.requirementText || "No course prerequisites."
+        : "Prerequisites could not be checked. Verify them in Bear Tracks.",
+      term: term.term,
+    }))
   );
 }
 
-export default function DegreePathways({ completed = [], defaultMajor = "" }) {
+export default function DegreePathways({ completed = [], defaultMajor = "", onMap }) {
   const [major, setMajor] = useState(defaultMajor || "");
   const [targets, setTargets] = useState("");
   const [state, setState] = useState({ status: "idle", data: null, error: "" });
   const [active, setActive] = useState(0);
+  const [shownMap, setShownMap] = useState(null); // the map currently drawn below
+
+  const { status, data, error } = state;
+  const pathway = data?.pathways?.[active];
+
+  // Whatever pathway is selected becomes the flowchart below.
+  useEffect(() => {
+    if (!onMap) return;
+    if (pathway) {
+      onMap({ major: data.major || major, name: pathway.name, courses: pathwayToCourses(pathway) });
+      setShownMap(data.major || major);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, active]);
 
   async function find(event) {
     event.preventDefault();
@@ -51,27 +64,20 @@ export default function DegreePathways({ completed = [], defaultMajor = "" }) {
     setState({ status: "loading", data: null, error: "" });
     setActive(0);
     try {
-      const data = await planDegree({ major: major.trim(), completed, targets: targetList });
-      setState({ status: "done", data, error: "" });
+      const result = await planDegree({ major: major.trim(), completed, targets: targetList });
+      setState({ status: "done", data: result, error: "" });
     } catch {
-      setState({
-        status: "error",
-        data: null,
-        error: "Could not reach the planner. Is the server running?",
-      });
+      setState({ status: "error", data: null, error: "Could not reach the planner. Is the server running?" });
     }
   }
-
-  const { status, data, error } = state;
-  const pathway = data?.pathways?.[active];
 
   return (
     <Card className="mt-6 p-5 sm:p-6" aria-labelledby="pathways-title">
       <h2 id="pathways-title" className="text-xl font-black tracking-tight">
-        Find my pathways
+        Choose your major
       </h2>
       <p className="mt-1 text-sm text-muted">
-        Any major. Prerequisites come from the official U of A course catalogue.
+        Any major. The map below redraws with your courses, using prerequisites from the official U of A catalogue.
       </p>
 
       <form onSubmit={find} className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -112,14 +118,13 @@ export default function DegreePathways({ completed = [], defaultMajor = "" }) {
             className="mt-1 min-h-11 w-full rounded-xl border border-white/10 bg-raised/60 px-3 text-sm text-text placeholder:text-muted/70 focus-visible:outline-2 focus-visible:outline-amber"
           />
           <p className="mt-2 text-xs text-muted">
-            Using your {completed.length} finished {completed.length === 1 ? "course" : "courses"}. Leave this empty and the AI suggests
-            pathways for your major.
+            Leave this empty and the AI suggests pathways for your major.
           </p>
         </div>
         <div className="sm:col-span-2">
           <Button type="submit" disabled={status === "loading"}>
             <Sparkles size={17} aria-hidden="true" />
-            {status === "loading" ? "Checking the catalogue…" : "Find my pathways"}
+            {status === "loading" ? "Checking the catalogue…" : "Show my map"}
           </Button>
         </div>
       </form>
@@ -127,17 +132,19 @@ export default function DegreePathways({ completed = [], defaultMajor = "" }) {
       <div aria-live="polite">
         {status === "error" && <p className="mt-4 text-sm font-bold text-red-300">{error}</p>}
         {status === "done" && data.source === "unavailable" && (
-          <p className="mt-4 rounded-2xl bg-raised/50 p-4 text-sm text-muted">{data.message}</p>
+          <p className="mt-4 rounded-2xl bg-raised/50 p-4 text-sm text-muted">
+            {data.message}
+            {shownMap && ` The map below is still your previous one (${shownMap}).`}
+          </p>
         )}
       </div>
 
       {status === "done" && data.pathways?.length > 0 && (
         <div className="mt-5">
           {data.summary && (
-            <div className="mb-4 rounded-2xl bg-sage/10 p-4">
-              <p className="text-sm font-extrabold text-sage">{data.summary.headline}</p>
-              <p className="mt-1 text-sm text-muted">{data.summary.advice}</p>
-            </div>
+            <p className="mb-3 text-sm text-muted">
+              <span className="font-extrabold text-sage">{data.summary.headline}</span> {data.summary.advice}
+            </p>
           )}
 
           <div role="tablist" aria-label="Pathways" className="flex flex-wrap gap-2">
@@ -160,46 +167,48 @@ export default function DegreePathways({ completed = [], defaultMajor = "" }) {
           </div>
 
           {pathway && (
-            <div role="tabpanel" className="mt-4">
+            <div role="tabpanel" className="mt-3">
               {pathway.why && <p className="text-sm text-muted">{pathway.why}</p>}
-              {pathway.terms.length === 0 ? (
-                <p className="mt-3 text-sm font-bold text-sage">Nothing left to take for these goals. 🎉</p>
-              ) : (
-                <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {pathway.terms.map((term) => (
-                    <div key={term.term} className="rounded-2xl border border-white/[0.06] bg-surface/60 p-3">
-                      <h3 className="mb-2 text-sm font-black text-amber">{term.term}</h3>
-                      <ul className="space-y-2">
-                        {term.courses.map((course) => (
-                          <CourseRow key={course.code} course={course} />
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
+              {pathway.terms.length === 0 && (
+                <p className="mt-2 text-sm font-bold text-sage">Nothing left to take for these goals. 🎉</p>
               )}
 
-              {pathway.choices.length > 0 && (
-                <div className="mt-4 rounded-2xl bg-raised/40 p-4">
-                  <h3 className="text-sm font-extrabold">Your choices</h3>
-                  <ul className="mt-2 space-y-1.5 text-xs text-muted">
+              {pathway.terms.length > 0 && (
+                <details className="mt-3 rounded-2xl bg-raised/40 p-3">
+                  <summary className="cursor-pointer text-sm font-extrabold">Term-by-term plan</summary>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {pathway.terms.map((term) => (
+                      <div key={term.term}>
+                        <h3 className="text-xs font-black text-amber">{term.term}</h3>
+                        <p className="mt-1 text-xs leading-relaxed text-muted">
+                          {term.courses.map((course) => course.code).join(" · ")}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+
+              <details className="mt-2 rounded-2xl bg-raised/40 p-3">
+                <summary className="cursor-pointer text-sm font-extrabold">
+                  Notes and choices ({pathway.warnings.length + pathway.choices.length})
+                </summary>
+                {pathway.choices.length > 0 && (
+                  <ul className="mt-3 space-y-1.5 text-xs text-muted">
                     {pathway.choices.map((choice) => (
                       <li key={`${choice.for}-${choice.oneOf.join()}`}>
-                        <span className="font-bold text-text">{choice.for}</span> needs one of{" "}
-                        {choice.oneOf.join(", ")}. We picked{" "}
-                        <span className="font-bold text-sage">{choice.picked}</span> because it needs the fewest extra
-                        courses.
+                        <span className="font-bold text-text">{choice.for}</span> needs one of {choice.oneOf.join(", ")}.
+                        We picked <span className="font-bold text-sage">{choice.picked}</span> (fewest extra courses).
                       </li>
                     ))}
                   </ul>
-                </div>
-              )}
-
-              <ul className="mt-4 space-y-1 border-t border-white/10 pt-3 text-xs leading-relaxed text-muted">
-                {pathway.warnings.map((warning) => (
-                  <li key={warning}>• {warning}</li>
-                ))}
-              </ul>
+                )}
+                <ul className="mt-3 space-y-1 text-xs leading-relaxed text-muted">
+                  {pathway.warnings.map((warning) => (
+                    <li key={warning}>• {warning}</li>
+                  ))}
+                </ul>
+              </details>
             </div>
           )}
         </div>

@@ -2,9 +2,12 @@
 const { lookup, splitCode } = require("./catalogue");
 const { normalizeCode, unmetGroups, describeTree } = require("./prereq");
 const { planPathway } = require("./planner");
-const { suggestPathways, summarizePlans } = require("./ai");
+const { summarizePlans } = require("./ai");
+const { getSuggestions } = require("./suggestions");
 
 const DEFAULT_START = "Winter 2027";
+
+
 
 function codeList(value, max = 60) {
   if (!Array.isArray(value)) return [];
@@ -25,6 +28,29 @@ function publicCourse(entry) {
     prereqKnown: entry.prereqKnown,
     source: entry.source, // verified | live | listing | unverified
   };
+}
+
+function explainAiFailure(error, major) {
+  const text = String(error?.message || "");
+  if (/not configured/i.test(text)) {
+    return { reason: "no_key", message: "No AI key is set on the server. Add GEMINI_API_KEY to server/.env, or type the courses you want to reach." };
+  }
+  if (/per.?day|daily/i.test(text) && /\b429\b|quota|exhausted/i.test(text)) {
+    return {
+      reason: "daily_limit",
+      message: "This AI key's daily limit is used up. Type the courses you want to reach (that works without AI), pick a major you already searched, or try again tomorrow.",
+    };
+  }
+  if (/\b429\b|quota|rate|resource.?exhausted/i.test(text)) {
+    return { reason: "rate_limit", message: "The AI is busy right now (rate limit). Wait a minute and try again, or type the courses you want to reach." };
+  }
+  if (/No usable pathways/i.test(text)) {
+    return {
+      reason: "no_pathways",
+      message: `The AI could not suggest valid U of A courses for "${major}". Try a more specific major (for example "Mechanical Engineering"), or type the courses you want to reach.`,
+    };
+  }
+  return { reason: "ai_error", message: "The AI did not answer properly. Try again, or type the courses you want to reach." };
 }
 
 function readOptions(body) {
@@ -105,15 +131,17 @@ module.exports = function mountDegreeRoutes(app) {
         source = "user";
       } else {
         try {
-          suggestions = await suggestPathways({ major, completed, interests, lookup });
+          suggestions = (await getSuggestions({ major, completed, interests, lookup })).suggestions;
           source = "ai";
         } catch (error) {
           console.error("[degree/plan] suggestions:", error.message);
+          const why = explainAiFailure(error, major);
           return res.json({
             major,
             startTerm,
             source: "unavailable",
-            message: "The AI is offline right now. Pick the courses you want to reach and I will plan them.",
+            reason: why.reason,
+            message: why.message,
             summary: null,
             pathways: [],
           });
