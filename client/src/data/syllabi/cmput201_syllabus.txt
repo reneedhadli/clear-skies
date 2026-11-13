@@ -1,0 +1,33 @@
+CMPUT 201 — Practical Programming Methodology
+University of Alberta · Fall Term · 3 credits
+Instructor: Dr. Priya Raman
+Office hours: Tuesday and Thursday, 2:00–3:00 pm, Athabasca Hall 3-41
+
+COURSE DESCRIPTION
+This course builds the habits behind reliable programs: testing, debugging, modular
+design, memory management, and the C programming language. You will write more code
+than in CMPUT 174 and learn how to reason about your own programs.
+
+GRADING
+Labs 8% · Quizzes 6% · Assignments 26% · Midterm 20% · Final project 5% · Final exam 35%
+
+SCHEDULE
+Week 1  Course intro, git and the command line
+Week 2  Testing and debugging. Lab 1: Git & testing due Friday, 2%
+Week 3  Pointers and memory. Assignment 1: C pointers due Friday, 5%
+Week 4  Structs and modules. Quiz 1: testing habits in class Tuesday, 3%
+Week 5  Dynamic memory. Assignment 2: modules due Friday, 8%
+Week 6  Midterm on Thursday in class, 18%. Covers weeks 1–5.
+Week 7  Reading week — no classes
+Week 8  Debugging tools. Lab 3: valgrind due Friday, 2%
+Week 9  Design patterns. Assignment 3: memory due Wednesday, 15%
+Week 10 Interfaces and abstraction
+Week 11 Testing at scale. Quiz 2: design patterns in class Tuesday, 3%
+Week 12 Final project due Friday, 12%. In-class demos the following week.
+Week 13 Project demos and review
+Week 14 Review week
+Week 15 Final exam on Tuesday, 35%. Cumulative.
+
+NOTES
+Late assignments lose 10% per day. Labs are graded in person. Bring your laptop to
+every class. The final project may be completed in pairs.
