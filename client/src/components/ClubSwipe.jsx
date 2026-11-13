@@ -20,6 +20,8 @@ import { weatherMeta } from "../lib/weather.js";
 import { postJSON } from "../lib/api.js";
 import { localClubCopy } from "../lib/localAI.js";
 
+const DECK_SIZE = 20;
+
 function scrollToMyClubs() {
   document.getElementById("my-clubs")?.scrollIntoView({ behavior: "smooth" });
 }
@@ -144,8 +146,11 @@ function MyClubs({
   likedClubIds,
   clubMatches,
   clubCopies,
+  quizAnswers,
   onRemove,
 }) {
+  const [finalPicks, setFinalPicks] = useState(null);
+  const [picking, setPicking] = useState(false);
   const saved = useMemo(() => {
     const rankedById = new Map(ranked.map((club) => [club.id, club]));
     const events = clubEventsForForecast(likedClubIds, clubs, forecast, profile.currentWeek);
@@ -165,6 +170,41 @@ function MyClubs({
     });
   }, [ranked, forecast, profile.currentWeek, likedClubIds, clubMatches, clubCopies]);
 
+  async function pickTopThree() {
+    setPicking(true);
+    try {
+      const result = await postJSON("/api/club-final", {
+        quizAnswers,
+        clubs: saved.map(({ club, match }) => ({
+          id: club.id,
+          name: club.name,
+          category: club.category,
+          vibe: club.vibe,
+          hoursPerWeek: club.hoursPerWeek,
+          hoursEstimated: club.hoursEstimated,
+          match,
+        })),
+      });
+      setFinalPicks(result);
+    } catch {
+      const top = [...saved].sort((a, b) => b.match - a.match).slice(0, 3);
+      setFinalPicks({
+        summary: "Your three strongest matches.",
+        picks: top.map(({ club }) => ({ id: club.id, reason: "One of your strongest matches from the quiz." })),
+        source: "fallback",
+      });
+    } finally {
+      setPicking(false);
+    }
+  }
+
+  // Forget old picks if a picked club is removed.
+  useEffect(() => {
+    if (finalPicks && finalPicks.picks.some((pick) => !likedClubIds.includes(pick.id))) {
+      setFinalPicks(null);
+    }
+  }, [likedClubIds, finalPicks]);
+
   return (
     <section id="my-clubs" className="scroll-mt-28 border-t border-meadow-ink/10 pt-6">
       <div className="mb-4">
@@ -173,6 +213,47 @@ function MyClubs({
           Clubs you liked. Their events show up on your forecast.
         </p>
       </div>
+
+      {saved.length >= 3 && (
+        <div className="mb-4">
+          <button
+            type="button"
+            onClick={pickTopThree}
+            disabled={picking}
+            className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#3d6b43] px-5 text-sm font-extrabold text-white transition hover:bg-[#315637] disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3d6b43]"
+          >
+            <Sparkles size={16} aria-hidden="true" />
+            {picking ? "Stormy is choosing…" : "Pick my top 3"}
+          </button>
+        </div>
+      )}
+
+      {finalPicks && (
+        <div className="mb-4 rounded-2xl border-2 border-[#3d6b43]/40 bg-[#eef6e9] p-4">
+          <h3 className="text-base font-black text-meadow-ink">Stormy's top picks ⭐</h3>
+          <p className="mt-1 text-sm font-medium text-meadow-sub">{finalPicks.summary}</p>
+          <ul className="mt-3 space-y-2">
+            {finalPicks.picks.map((pick) => {
+              const club = clubs.find((item) => item.id === pick.id);
+              if (!club) return null;
+              return (
+                <li key={pick.id} className="text-sm font-semibold text-meadow-ink">
+                  <span aria-hidden="true">{club.emoji}</span> {club.name}
+                  <span className="block font-medium text-meadow-sub">{pick.reason}</span>
+                </li>
+              );
+            })}
+          </ul>
+          {finalPicks.source === "fallback" && (
+            <p className="mt-2 text-xs font-semibold text-meadow-sub">Backup picks (AI offline).</p>
+          )}
+          {finalPicks.hoursTotal != null && (
+            <p className="mt-2 text-xs font-semibold text-meadow-sub">
+              About {finalPicks.hoursTotal}h/week together (estimated from club names).
+            </p>
+          )}
+        </div>
+      )}
 
       {saved.length === 0 ? (
         <p className="rounded-2xl border border-meadow-ink/10 bg-white/55 px-4 py-5 text-sm font-semibold text-meadow-sub">
@@ -281,8 +362,14 @@ export default function ClubSwipe({ onRetake }) {
     () => rankedClubs(clubs, quizAnswers || {}, forecast, courseCodes),
     [quizAnswers, forecast, courseCodes]
   );
+  const rankedRef = useRef(ranked);
+  rankedRef.current = ranked;
+  // Only the 20 best matches go in the swipe deck.
   const deck = useMemo(
-    () => ranked.filter((club) => !likedClubIds.includes(club.id) && !skipped.includes(club.id)),
+    () =>
+      ranked
+        .slice(0, DECK_SIZE)
+        .filter((club) => !likedClubIds.includes(club.id) && !skipped.includes(club.id)),
     [ranked, likedClubIds, skipped]
   );
   const top = deck[0];
@@ -302,13 +389,14 @@ export default function ClubSwipe({ onRetake }) {
     (async () => {
       let result;
       try {
+        const topClubs = rankedRef.current.slice(0, DECK_SIZE);
         result = await postJSON("/api/club-copy", {
           quizAnswers,
           courses: courseCodes,
-          clubs,
+          clubs: topClubs,
         });
       } catch {
-        result = localClubCopy(quizAnswers, clubs);
+        result = localClubCopy(quizAnswers, rankedRef.current.slice(0, DECK_SIZE));
       }
       if (!cancelled) {
         actions.mergeClubCopies(result);
@@ -492,6 +580,7 @@ export default function ClubSwipe({ onRetake }) {
         likedClubIds={likedClubIds}
         clubMatches={clubMatches}
         clubCopies={clubCopies}
+        quizAnswers={quizAnswers}
         onRemove={removeClub}
       />
     </div>

@@ -1,6 +1,38 @@
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 
+async function callGemini(systemPrompt, userPrompt) {
+  const model = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-goog-api-key": process.env.GEMINI_API_KEY,
+      },
+      signal: AbortSignal.timeout(35000),
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+        generationConfig: { responseMimeType: "application/json", temperature: 0.4 },
+      }),
+    }
+  );
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`Gemini ${response.status}: ${detail.slice(0, 300)}`);
+  }
+  const data = await response.json();
+  const text = (data.candidates?.[0]?.content?.parts ?? [])
+    .map((part) => part.text ?? "")
+    .join("")
+    .trim();
+  if (!text) throw new Error("Gemini returned an empty response");
+  return text;
+}
+
 async function callLLM(systemPrompt, userPrompt) {
+  if (process.env.GEMINI_API_KEY) return callGemini(systemPrompt, userPrompt);
   const apiKey = process.env.AI_API_KEY;
   if (!apiKey) throw new Error("AI_API_KEY is not configured");
 

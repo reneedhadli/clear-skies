@@ -1,4 +1,29 @@
-export const clubs = [
+import directory from "./uofa-clubs.json";
+
+// Club names come from the U of A student group directory.
+// Category, tags, vibe and hours are AI-guessed from the name only (hoursEstimated: true).
+const CATEGORY_STYLE = {
+  gaming: { emoji: "🎮", color: "#9B8CFF" },
+  sports: { emoji: "⚽", color: "#7FD1A8" },
+  music: { emoji: "🎵", color: "#FFB547" },
+  tech: { emoji: "💻", color: "#8EC9FF" },
+  art: { emoji: "🎨", color: "#FF9EB5" },
+  volunteering: { emoji: "🤝", color: "#A8D87A" },
+};
+
+const directoryClubs = directory.map((club) => ({
+  ...club,
+  ...CATEGORY_STYLE[club.category],
+  tags: [...new Set([club.category, ...club.tags])],
+  meetingDay: null,
+  description: "",
+  website: null,
+  instagram: null,
+  nextEvent: null,
+  isDemoEvent: false,
+}));
+
+const confirmedClubs = [
   {
     id: "computer-engineering-club",
     name: "Computer Engineering Club",
@@ -22,3 +47,5 @@ export const clubs = [
     color: "#7FD1A8",
   },
 ];
+
+export const clubs = [...confirmedClubs, ...directoryClubs];

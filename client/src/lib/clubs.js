@@ -59,9 +59,12 @@ export function computeMatch(club, quizAnswers = {}, forecast = [], courseCodes 
           : 1;
   const timeScore = 0.45 + 0.3 * hoursFit + 0.15 * sunnyFit + 0.1 * dayFit;
 
-  const score = Math.round(50 * interestScore + 25 * courseScore + 25 * timeScore);
   const vibeFit =
-    quizAnswers.vibe === "either" ? true : quizAnswers.vibe === club.vibe;
+    quizAnswers.vibe === "either" || club.vibe === "both"
+      ? true
+      : quizAnswers.vibe === club.vibe;
+  const vibeAdjust = quizAnswers.vibe ? (vibeFit ? 6 : -6) : 0;
+  const score = Math.round(50 * interestScore + 25 * courseScore + 25 * timeScore) + vibeAdjust;
 
   return {
     score: Math.max(38, Math.min(98, score)),

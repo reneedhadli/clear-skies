@@ -22,8 +22,11 @@ app.use(express.json({ limit: "3mb" }));
 app.get("/api/health", (_req, res) => {
   res.json({
     ok: true,
-    aiConfigured: Boolean(process.env.AI_API_KEY),
-    model: process.env.AI_MODEL || "claude-sonnet-4-5",
+    aiConfigured: Boolean(process.env.GEMINI_API_KEY || process.env.AI_API_KEY),
+    provider: process.env.GEMINI_API_KEY ? "gemini" : "anthropic",
+    model: process.env.GEMINI_API_KEY
+      ? process.env.GEMINI_MODEL || "gemini-3.5-flash"
+      : process.env.AI_MODEL || "claude-sonnet-4-5",
   });
 });
 
@@ -221,6 +224,66 @@ Return one entry for every club id.`;
   }
 });
 
+// Body: { clubs: [{id,name,category,vibe,hoursPerWeek,hoursEstimated,match}], quizAnswers }
+// Picks the best 2-3 of the clubs the student liked. Falls back to the top matches.
+app.post("/api/club-final", async (req, res) => {
+  const clubs = Array.isArray(req.body?.clubs) ? req.body.clubs.slice(0, 12) : [];
+  const quizAnswers = req.body?.quizAnswers || {};
+  if (!clubs.length) return res.status(400).json({ error: "Send the clubs the student liked." });
+
+  const budget = Number(quizAnswers.hours) || 4;
+  const ids = new Set(clubs.map((club) => club.id));
+  const byId = new Map(clubs.map((club) => [club.id, club]));
+
+  function build(picked, summary, source) {
+    const hoursTotal = picked.reduce((sum, pick) => sum + (Number(byId.get(pick.id)?.hoursPerWeek) || 2), 0);
+    return {
+      summary,
+      picks: picked,
+      hoursTotal,
+      budget,
+      fitsBudget: hoursTotal <= budget + 1,
+      source,
+    };
+  }
+
+  try {
+    const systemPrompt =
+      'You are Stormy, a warm weather-reporter bear helping a U of A student choose clubs. Return ONLY valid JSON: {"summary":string,"picks":[{"id":string,"reason":string}]}. Pick exactly 3 clubs (or all of them if fewer than 3), only using ids from the list. reason is one friendly sentence under 22 words. summary is one short sentence. Prefer clubs whose hoursPerWeek fit the weekly time budget when added together. Hours marked hoursEstimated are guesses; never state them as facts.';
+    const userPrompt = `Quiz answers: ${JSON.stringify(quizAnswers)}
+Weekly time budget (hours): ${budget}
+Liked clubs: ${JSON.stringify(
+      clubs.map((club) => ({
+        id: club.id,
+        name: club.name,
+        category: club.category,
+        vibe: club.vibe,
+        hoursPerWeek: club.hoursPerWeek,
+        hoursEstimated: club.hoursEstimated,
+        match: club.match,
+      }))
+    )}`;
+    const parsed = parseJSON(await callLLM(systemPrompt, userPrompt));
+    const picked = (Array.isArray(parsed.picks) ? parsed.picks : [])
+      .filter((pick) => pick && ids.has(pick.id) && String(pick.reason || "").trim())
+      .filter((pick, index, all) => all.findIndex((other) => other.id === pick.id) === index)
+      .slice(0, 3)
+      .map((pick) => ({ id: pick.id, reason: String(pick.reason).trim().slice(0, 220) }));
+    if (!picked.length) throw new Error("No valid picks");
+    res.json(build(picked, String(parsed.summary || "Here are your top picks.").slice(0, 160), "ai"));
+  } catch (error) {
+    console.error("[club-final]", error.message);
+    const top = [...clubs].sort((a, b) => (b.match || 0) - (a.match || 0)).slice(0, 3);
+    res.json(
+      build(
+        top.map((club) => ({ id: club.id, reason: "One of your strongest matches from the quiz." })),
+        "Your three strongest matches.",
+        "fallback"
+      )
+    );
+  }
+});
+
 app.use((error, _req, res, _next) => {
   console.error("[server]", error.message);
   res.status(500).json({ error: "Something went wrong. The demo fallback will cover it." });
@@ -229,10 +292,10 @@ app.use((error, _req, res, _next) => {
 app.listen(PORT, () => {
   console.log(
     `Clear Skies server on http://localhost:${PORT} · AI ${
-      process.env.AI_API_KEY ? "configured" : "offline fallbacks"
+      process.env.GEMINI_API_KEY || process.env.AI_API_KEY ? "configured" : "offline fallbacks"
     }`
   );
-  if (!process.env.AI_API_KEY) {
-    console.log("Tip: copy server/.env.example to server/.env and add AI_API_KEY.");
+  if (!process.env.GEMINI_API_KEY && !process.env.AI_API_KEY) {
+    console.log("Tip: copy server/.env.example to server/.env and add GEMINI_API_KEY.");
   }
 });
