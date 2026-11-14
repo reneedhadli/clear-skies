@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import {
+  AnimatePresence,
+  motion,
+  useAnimationControls,
+  useReducedMotion,
+} from "framer-motion";
 import {
   AlertTriangle,
   BookOpen,
@@ -10,6 +15,7 @@ import {
   Minus,
   MoreVertical,
   Plus,
+  Radio,
   Send,
   Sparkles,
   X,
@@ -22,6 +28,12 @@ import { buildForecast } from "../lib/forecast.js";
 import { weatherMeta } from "../lib/weather.js";
 import { postJSON } from "../lib/api.js";
 import { localChat } from "../lib/localAI.js";
+import ForecastReportPlayer from "./ForecastReportPlayer.jsx";
+import { clubs } from "../data/clubs.js";
+import { clubEventsForForecast } from "../lib/clubs.js";
+import { generateForecastReport } from "../lib/forecastReport.js";
+import { stopForecastAudio } from "../lib/forecastAudio.js";
+import stormyMascot from "../assets/stormy.png";
 
 const QUICK_REPLIES = {
   forecast: [
@@ -79,16 +91,32 @@ function welcomeMessage() {
   };
 }
 
-export default function FloatingStormy({ page, open, onOpen, onClose }) {
+function requestsForecastReport(message) {
+  return (
+    /\b(read|play|say|tell me)\b.*\b(forecast|weather report)\b/i.test(message) ||
+    /\bweather report\b|\bforecast report\b/i.test(message)
+  );
+}
+
+export default function FloatingStormy({
+  page,
+  open,
+  onOpen,
+  onClose,
+  selectedForecastWeek,
+}) {
   const {
     profile,
     deadlines,
     quizAnswers,
+    likedClubIds,
     chatMessages,
     actions,
   } = useApp();
   const forecast = useMemo(() => buildForecast(deadlines), [deadlines]);
-  const current = forecast.find((week) => week.week === profile.currentWeek) || forecast[0];
+  const current =
+    forecast.find((week) => week.week === (selectedForecastWeek || profile.currentWeek)) ||
+    forecast[0];
   const weather = deadlines.length ? current.weather : "cloudy";
   const weatherMetaForWeek = weatherMeta(weather);
   const eligible = useMemo(
@@ -112,11 +140,95 @@ export default function FloatingStormy({ page, open, onOpen, onClose }) {
   const endRef = useRef(null);
   const openerRef = useRef(null);
   const previousOpenRef = useRef(false);
+  const attentionTimersRef = useRef(new Set());
+  const attentionStoppedRef = useRef(false);
+  const attentionCountRef = useRef(0);
   const reduce = useReducedMotion();
+  const attentionControls = useAnimationControls();
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const [minimized, setMinimized] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [autoPlayMessageId, setAutoPlayMessageId] = useState(null);
+  const [attentionCycle, setAttentionCycle] = useState(0);
+  const [initialAttentionBounce, setInitialAttentionBounce] = useState(true);
+  const [showAttentionBubble, setShowAttentionBubble] = useState(false);
+  const openRef = useRef(open);
+  const pageRef = useRef(page);
+  openRef.current = open;
+  pageRef.current = page;
+
+  function scheduleAttention(callback, delay) {
+    const timer = window.setTimeout(() => {
+      attentionTimersRef.current.delete(timer);
+      callback();
+    }, delay);
+    attentionTimersRef.current.add(timer);
+  }
+
+  function stopAttention() {
+    if (attentionStoppedRef.current) return;
+    attentionStoppedRef.current = true;
+    sessionStorage.setItem("stormy-attention-stopped", "true");
+    attentionTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    attentionTimersRef.current.clear();
+    setShowAttentionBubble(false);
+  }
+
+  useEffect(() => {
+    if (open) {
+      stopAttention();
+      return;
+    }
+    if (
+      attentionStoppedRef.current ||
+      sessionStorage.getItem("stormy-attention-stopped") === "true"
+    ) {
+      attentionStoppedRef.current = true;
+      return;
+    }
+
+    let bubbleWasShown =
+      sessionStorage.getItem("stormy-attention-bubble-shown") === "true";
+    function bounceAndScheduleNext() {
+      if (attentionStoppedRef.current) return;
+      setInitialAttentionBounce(attentionCountRef.current === 0);
+      attentionCountRef.current += 1;
+      setAttentionCycle((cycle) => cycle + 1);
+      if (!bubbleWasShown) {
+        bubbleWasShown = true;
+        sessionStorage.setItem("stormy-attention-bubble-shown", "true");
+        setShowAttentionBubble(true);
+        scheduleAttention(() => setShowAttentionBubble(false), 5000);
+      }
+      scheduleAttention(bounceAndScheduleNext, 30000);
+    }
+
+    scheduleAttention(bounceAndScheduleNext, 1500);
+    return () => {
+      attentionTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+      attentionTimersRef.current.clear();
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (reduce || attentionCycle === 0) return;
+    attentionControls.start(
+      initialAttentionBounce
+        ? {
+            y: [0, -12, 0, -10, 0, -8, 0],
+            scaleX: [1, 1, 1.04, 1, 1.03, 1, 1.02],
+            scaleY: [1, 1.04, 0.96, 1.03, 0.97, 1.02, 1],
+            transition: { duration: 1.2, ease: "easeInOut" },
+          }
+        : {
+            y: [0, -10, 0],
+            scaleX: [1, 1.02, 1],
+            scaleY: [1, 0.98, 1],
+            transition: { duration: 0.45, ease: "easeInOut" },
+          }
+    );
+  }, [attentionControls, attentionCycle, initialAttentionBounce, reduce]);
 
   useEffect(() => {
     if (chatMessages.length === 0) actions.addChatMessage(welcomeMessage());
@@ -137,6 +249,7 @@ export default function FloatingStormy({ page, open, onOpen, onClose }) {
     function onKeyDown(event) {
       if (event.key === "Escape") {
         event.preventDefault();
+        stopForecastAudio();
         onClose();
       }
     }
@@ -156,7 +269,7 @@ export default function FloatingStormy({ page, open, onOpen, onClose }) {
     () => ({
       profile,
       page,
-      currentWeek: profile.currentWeek,
+      currentWeek: current.week,
       forecast: forecast.map(({ week, weather: weekWeather, stress }) => ({
         week,
         weather: weekWeather,
@@ -172,7 +285,7 @@ export default function FloatingStormy({ page, open, onOpen, onClose }) {
       })),
       eligibleCourses: eligible.map((course) => course.code),
     }),
-    [profile, page, forecast, deadlines, eligible]
+    [profile, page, forecast, deadlines, eligible, current]
   );
 
   async function send(raw) {
@@ -182,6 +295,37 @@ export default function FloatingStormy({ page, open, onOpen, onClose }) {
     actions.addChatMessage({ role: "user", content: message });
     setInput("");
     setTyping(true);
+
+    if (requestsForecastReport(message)) {
+      stopForecastAudio();
+      const week = current;
+      const clubEvents = clubEventsForForecast(
+        likedClubIds,
+        clubs,
+        forecast,
+        current.week
+      ).filter((event) => event.week === week.week);
+      const report = await generateForecastReport({
+        week,
+        weather: week.weather,
+        deadlines: week.due,
+        clubEvents,
+        studentName: profile.name,
+      });
+      const shouldStartReport = openRef.current && pageRef.current === page;
+      const id = `forecast-report-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      actions.addChatMessage({
+        role: "assistant",
+        content: report,
+        isForecastReport: true,
+        reportWeek: week.week,
+        id,
+      });
+      setAutoPlayMessageId(shouldStartReport ? id : null);
+      setTyping(false);
+      inputRef.current?.focus();
+      return;
+    }
 
     let reply;
     try {
@@ -201,12 +345,14 @@ export default function FloatingStormy({ page, open, onOpen, onClose }) {
   }
 
   function closePanel() {
+    stopForecastAudio();
     setMenuOpen(false);
     setMinimized(false);
     onClose();
   }
 
   function openPanel() {
+    stopAttention();
     setMinimized(false);
     onOpen();
   }
@@ -236,13 +382,15 @@ export default function FloatingStormy({ page, open, onOpen, onClose }) {
           >
             {minimized ? (
               <div className="flex h-full items-center gap-3 px-4">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-raised text-amber">
-                  <CloudSun size={20} aria-hidden="true" />
-                </span>
+                <img
+                  src={stormyMascot}
+                  alt=""
+                  className="h-10 w-10 shrink-0 rounded-full object-cover"
+                />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-black">Stormy</p>
                   <p className="truncate text-xs text-muted">
-                    Week {profile.currentWeek} looks {weatherMetaForWeek.label.toLowerCase()}{" "}
+                    Week {current.week} looks {weatherMetaForWeek.label.toLowerCase()}{" "}
                     {weatherMetaForWeek.emoji}
                   </p>
                 </div>
@@ -258,20 +406,15 @@ export default function FloatingStormy({ page, open, onOpen, onClose }) {
             ) : (
               <>
                 <header className="flex items-center gap-3 border-b border-white/[0.06] px-4 py-3">
-                  <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-raised text-amber">
-                    <CloudSun size={21} aria-hidden="true" />
-                    <span
-                      className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full border-2 border-surface bg-raised text-[9px]"
-                      aria-label={weatherMetaForWeek.label}
-                      title={weatherMetaForWeek.label}
-                    >
-                      {weatherMetaForWeek.emoji}
-                    </span>
-                  </span>
+                  <img
+                    src={stormyMascot}
+                    alt=""
+                    className="h-10 w-10 shrink-0 rounded-full object-cover"
+                  />
                   <div className="min-w-0 flex-1">
                     <h2 className="text-base font-black tracking-tight">Stormy</h2>
                     <p className="truncate text-[11px] font-semibold text-muted">
-                      Week {profile.currentWeek} looks {weatherMetaForWeek.label.toLowerCase()}{" "}
+                      Week {current.week} looks {weatherMetaForWeek.label.toLowerCase()}{" "}
                       {weatherMetaForWeek.emoji}
                     </p>
                   </div>
@@ -337,9 +480,24 @@ export default function FloatingStormy({ page, open, onOpen, onClose }) {
                               <CloudSun size={18} />
                             </span>
                             <div className="max-w-[88%]">
-                              <div className="rounded-[22px] rounded-tl-md bg-raised/75 px-4 py-3 text-sm leading-relaxed">
-                                {message.content}
-                              </div>
+                              {message.isForecastReport ? (
+                                <>
+                                  <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-amber">
+                                    Week {message.reportWeek} · Stormy&apos;s weather report
+                                  </p>
+                                  <ForecastReportPlayer
+                                    report={message.content}
+                                    week={message.reportWeek}
+                                    compact
+                                    autoPlayToken={autoPlayMessageId === message.id ? 1 : 0}
+                                    onAutoPlay={() => setAutoPlayMessageId(null)}
+                                  />
+                                </>
+                              ) : (
+                                <div className="rounded-[22px] rounded-tl-md bg-raised/75 px-4 py-3 text-sm leading-relaxed">
+                                  {message.content}
+                                </div>
+                              )}
                               {message.warning && (
                                 <div className="mt-2 flex items-start gap-2 rounded-2xl border border-amber/25 bg-amber/10 p-3 text-sm text-amber">
                                   <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
@@ -390,7 +548,7 @@ export default function FloatingStormy({ page, open, onOpen, onClose }) {
 
                 <footer className="border-t border-white/[0.06] bg-surface/95 px-3 pb-3 pt-2">
                   <div className="mb-2 flex flex-wrap gap-1.5">
-                    {(QUICK_REPLIES[page] || QUICK_REPLIES.forecast).map((reply) => (
+                    {[...(QUICK_REPLIES[page] || QUICK_REPLIES.forecast), "🎙️ Play my forecast"].map((reply) => (
                       <Button
                         key={reply}
                         variant="outline"
@@ -399,7 +557,11 @@ export default function FloatingStormy({ page, open, onOpen, onClose }) {
                         disabled={typing}
                         className="min-h-9 px-3 text-[11px]"
                       >
-                        <Sparkles size={13} className="text-amber" aria-hidden="true" />
+                        {reply === "🎙️ Play my forecast" ? (
+                          <Radio size={13} className="text-amber" aria-hidden="true" />
+                        ) : (
+                          <Sparkles size={13} className="text-amber" aria-hidden="true" />
+                        )}
                         {reply}
                       </Button>
                     ))}
@@ -437,28 +599,71 @@ export default function FloatingStormy({ page, open, onOpen, onClose }) {
         )}
       </AnimatePresence>
 
-      <div className="fixed bottom-6 right-6 z-[90] max-sm:bottom-[88px] max-sm:right-4">
-        <button
+      <div className="fixed bottom-6 right-6 z-[90] max-sm:bottom-4 max-sm:right-4">
+        <AnimatePresence>
+          {showAttentionBubble && !open && (
+            <motion.div
+              key="stormy-attention"
+              initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.92, y: page === "clubs" ? 6 : 0 }}
+              animate={reduce ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
+              exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.96 }}
+              transition={{ duration: reduce ? 0.12 : 0.2, ease: "easeOut" }}
+              className={`absolute z-10 flex w-[190px] items-center gap-1 rounded-2xl bg-[#fff9e8] p-3 text-sm font-bold text-[#23341e] shadow-[0_8px_24px_rgba(0,0,0,0.2)] ${
+                page === "clubs"
+                  ? "bottom-full right-0 mb-3"
+                  : "right-full top-1/2 mr-3 -translate-y-1/2"
+              }`}
+            >
+              <span
+                className={`absolute h-3 w-3 rotate-45 bg-[#fff9e8] ${
+                  page === "clubs"
+                    ? "bottom-[-5px] right-7"
+                    : "right-[-5px] top-1/2 -translate-y-1/2"
+                }`}
+                aria-hidden="true"
+              />
+              <button
+                type="button"
+                onClick={openPanel}
+                className="relative min-h-8 flex-1 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3d6b43]"
+              >
+                Hey! Use me 👋
+              </button>
+              <button
+                type="button"
+                onClick={stopAttention}
+                aria-label="Dismiss"
+                className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#45533d] transition hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#3d6b43]"
+              >
+                <X size={14} aria-hidden="true" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        <motion.button
           ref={openerRef}
           type="button"
           onClick={() => (open ? closePanel() : openPanel())}
           aria-label="Open chat with Stormy"
           aria-expanded={open}
-          className="group relative flex h-16 w-16 items-center justify-center rounded-full border border-white/15 bg-surface text-amber shadow-[0_14px_40px_-12px_rgba(0,0,0,0.6)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_20px_48px_-14px_rgba(0,0,0,0.65)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-amber motion-reduce:transform-none"
+          animate={attentionControls}
+          whileHover={reduce ? undefined : { scale: 1.06, y: -3 }}
+          whileTap={reduce ? undefined : { scale: 0.96 }}
+          className="group relative flex h-[76px] w-[76px] items-center justify-center rounded-full border-2 border-white/60 bg-[#2F4A2B] text-white shadow-[0_10px_28px_rgba(0,0,0,0.25)] transition-shadow duration-200 hover:shadow-[0_14px_34px_rgba(0,0,0,0.3)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#3d6b43] max-sm:h-[68px] max-sm:w-[68px]"
         >
-          {open ? <X size={25} aria-hidden="true" /> : <CloudSun size={28} aria-hidden="true" />}
-          {!open && (
-            <span
-              className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-surface bg-raised text-[10px]"
-              aria-hidden="true"
-            >
-              {weatherMetaForWeek.emoji}
-            </span>
+          {open ? (
+            <X size={25} aria-hidden="true" />
+          ) : (
+            <img
+              src={stormyMascot}
+              alt=""
+              className="absolute inset-0 h-full w-full rounded-full object-cover"
+            />
           )}
           <span className="pointer-events-none absolute bottom-full right-0 mb-2 whitespace-nowrap rounded-full bg-surface px-3 py-1.5 text-xs font-bold text-text opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
             Chat with Stormy
           </span>
-        </button>
+        </motion.button>
       </div>
     </div>,
     document.body

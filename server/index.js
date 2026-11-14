@@ -136,6 +136,46 @@ app.post("/api/storm-plan", async (req, res) => {
   }
 });
 
+app.post("/api/forecast-report", async (req, res) => {
+  const week = req.body?.week;
+  const weather = String(req.body?.weather || "cloudy");
+  const deadlines = Array.isArray(req.body?.deadlines) ? req.body.deadlines : [];
+  const clubEvents = Array.isArray(req.body?.clubEvents) ? req.body.clubEvents : [];
+  const studentName = String(req.body?.studentName || "").slice(0, 80);
+
+  if (!week || typeof week !== "object" || !Number.isInteger(Number(week.week))) {
+    return res.status(400).json({ error: "A valid forecast week is required." });
+  }
+
+  try {
+    const systemPrompt =
+      "You are Stormy, a cheerful and friendly TV weather reporter for a University of Alberta student. Write a spoken forecast in plain text, no markdown and no emojis, 80 to 120 words. Use this structure: greet U of A and introduce week number; summarize the supplied weekly weather; describe the stormiest day and its deadlines with course, title, time, and weight; mention a lighter day or supplied liked club event; give one kind short tip; finish exactly with “Stay warm, stay ahead. This has been Stormy, back to you!” If no deadlines are supplied, say “Clear skies all week! Perfect time to get ahead or join a club.” Use only supplied data. Never invent or change deadlines, times, weights, club events, or course details.";
+    const userPrompt = `Student name: ${studentName || "not provided"}
+Week: ${JSON.stringify(week)}
+Weekly weather: ${weather}
+Deadlines: ${JSON.stringify(deadlines)}
+Liked club events: ${JSON.stringify(clubEvents)}
+
+Return the spoken report as plain text only.`;
+
+    const response = await callLLM(systemPrompt, userPrompt);
+    const report = String(response || "").trim();
+    const wordCount = report.split(/\s+/).filter(Boolean).length;
+    if (
+      !report ||
+      wordCount > 120 ||
+      (deadlines.length > 0 && wordCount < 80) ||
+      /```|^\s*[-*#]/m.test(report)
+    ) {
+      throw new Error("Forecast report response failed validation");
+    }
+    res.json({ report, source: "ai" });
+  } catch (error) {
+    console.error("[forecast-report]", error.message);
+    res.status(503).json({ error: "Forecast report service is unavailable." });
+  }
+});
+
 app.post("/api/chat", async (req, res) => {
   const message = String(req.body?.message || "").trim();
   if (!message) return res.status(400).json({ error: "Please type a message." });

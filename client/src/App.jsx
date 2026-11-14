@@ -6,10 +6,12 @@ import Forecast from "./pages/Forecast.jsx";
 import DegreeMap from "./pages/DegreeMap.jsx";
 import Clubs from "./pages/Clubs.jsx";
 import FloatingStormy from "./components/FloatingStormy.jsx";
+import { stopForecastAudio } from "./lib/forecastAudio.js";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => {
+    stopForecastAudio();
     window.scrollTo({ top: 0, behavior: "auto" });
   }, [pathname]);
   return null;
@@ -19,6 +21,7 @@ export default function App() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [chatOpen, setChatOpen] = useState(false);
+  const [selectedForecastWeek, setSelectedForecastWeek] = useState(null);
   const isHome = pathname === "/";
   const page =
     pathname === "/degree" ? "degree" : pathname === "/clubs" ? "clubs" : "forecast";
@@ -28,6 +31,14 @@ export default function App() {
     setChatOpen(true);
     navigate("/", { replace: true });
   }, [pathname, navigate]);
+
+  useEffect(() => {
+    const stopWhenHidden = () => {
+      if (document.visibilityState === "hidden") stopForecastAudio();
+    };
+    document.addEventListener("visibilitychange", stopWhenHidden);
+    return () => document.removeEventListener("visibilitychange", stopWhenHidden);
+  }, []);
 
   return (
     <div className="relative min-h-dvh overflow-x-clip bg-meadow-sky">
@@ -53,7 +64,10 @@ export default function App() {
         }
       >
         <Routes>
-          <Route path="/" element={<Forecast onOpenChat={() => setChatOpen(true)} />} />
+          <Route
+            path="/"
+            element={<Forecast onSelectedWeekChange={setSelectedForecastWeek} />}
+          />
           <Route path="/degree" element={<DegreeMap />} />
           <Route path="/clubs" element={<Clubs />} />
           <Route path="/stormy" element={<Navigate to="/" replace />} />
@@ -63,6 +77,7 @@ export default function App() {
       </main>
       <FloatingStormy
         page={page}
+        selectedForecastWeek={selectedForecastWeek}
         open={chatOpen}
         onOpen={() => setChatOpen(true)}
         onClose={() => setChatOpen(false)}

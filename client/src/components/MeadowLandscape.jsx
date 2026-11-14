@@ -60,7 +60,6 @@ export default function MeadowLandscape({ seed = 17, className = "" }) {
     let builtFor = "";
     let mistCanvas = null;
     let revealAt = null;
-    let startedAt = 0;
     let last = 0;
     let raf = 0;
     let job = null;
@@ -68,6 +67,8 @@ export default function MeadowLandscape({ seed = 17, className = "" }) {
     let py = 0;
     let tx = 0;
     let ty = 0;
+    let inView = true;
+    let documentVisible = document.visibilityState === "visible";
     let rebuildTimer = 0;
 
     const makeMist = () => {
@@ -235,14 +236,11 @@ export default function MeadowLandscape({ seed = 17, className = "" }) {
 
     const tick = (now) => {
       raf = 0;
-      if (building < specs.length) work(18);
+      if (building < specs.length) work(6);
       if (revealAt === null && building >= specs.length) {
-        revealAt = reduced ? -1e9 : now;
-        startedAt = now;
+        revealAt = now;
       }
-      const intro =
-        revealAt !== null &&
-        (reduced || now - (revealAt > 0 ? revealAt : startedAt) < 4600);
+      const intro = !reduced && revealAt !== null && now - revealAt < 4600;
       const easing =
         Math.abs((reduced ? 0 : tx) - px) > 0.001 ||
         Math.abs((reduced ? 0 : ty) - py) > 0.001;
@@ -256,7 +254,7 @@ export default function MeadowLandscape({ seed = 17, className = "" }) {
     };
 
     const wake = () => {
-      if (!raf) raf = requestAnimationFrame(tick);
+      if (inView && documentVisible && !raf) raf = requestAnimationFrame(tick);
     };
 
     const measure = () => {
@@ -297,12 +295,32 @@ export default function MeadowLandscape({ seed = 17, className = "" }) {
       ty = 0;
       wake();
     };
+    const updateDocumentVisibility = () => {
+      documentVisible = document.visibilityState === "visible";
+      if (!documentVisible && raf) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      } else {
+        wake();
+      }
+    };
 
     measure();
     draw(performance.now());
     wake();
     window.addEventListener("pointermove", onMove, { passive: true });
-    window.addEventListener("pointerleave", onLeave);
+    window.addEventListener("pointerleave", onLeave, { passive: true });
+    document.addEventListener("visibilitychange", updateDocumentVisibility);
+    const visibilityObserver = new IntersectionObserver(([entry]) => {
+      inView = entry.isIntersecting;
+      if (!inView && raf) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      } else {
+        wake();
+      }
+    });
+    visibilityObserver.observe(root);
     const observer = new ResizeObserver(() => {
       measure();
       draw(performance.now());
@@ -314,6 +332,8 @@ export default function MeadowLandscape({ seed = 17, className = "" }) {
       cancelAnimationFrame(raf);
       window.clearTimeout(rebuildTimer);
       observer.disconnect();
+      visibilityObserver.disconnect();
+      document.removeEventListener("visibilitychange", updateDocumentVisibility);
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerleave", onLeave);
     };

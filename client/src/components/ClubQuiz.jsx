@@ -1,10 +1,6 @@
-import { useState } from "react";
-import { ArrowLeft, ArrowRight, Check, Sparkles } from "lucide-react";
-import Card from "./Card.jsx";
-import Button from "./Button.jsx";
-import Chip from "./Chip.jsx";
-import ProgressBar from "./ProgressBar.jsx";
-import Glow from "./Glow.jsx";
+import { useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 
 const QUESTIONS = [
   {
@@ -58,16 +54,17 @@ const QUESTIONS = [
   },
 ];
 
-function OptionTile({ option, selected, onClick }) {
+function OptionTile({ option, selected, multi, onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      className={`flex min-h-[76px] w-full items-center gap-3 rounded-[22px] border px-4 py-3 text-left transition ${
+      aria-label={`${option.label}${option.description ? `: ${option.description}` : ""}`}
+      className={`quiz-option-tile flex min-h-[68px] w-full items-center gap-3 rounded-[20px] border px-4 py-3 text-left transition-[transform,background-color,border-color,box-shadow] duration-150 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-[#253019] ${
         selected
-          ? "border-amber/60 bg-amber/10 shadow-[0_0_28px_-14px_var(--color-amber)]"
-          : "border-white/10 bg-raised/50 hover:border-white/20 hover:bg-raised"
+          ? "scale-[1.02] border-[#9a6b16] bg-[#fff4d8] shadow-[0_3px_12px_rgba(37,48,25,0.12)]"
+          : "border-[#253019]/20 bg-[#fbfbf6]/95 hover:border-[#253019]/40 hover:bg-white"
       }`}
     >
       <span className="text-2xl" aria-hidden="true">
@@ -75,17 +72,25 @@ function OptionTile({ option, selected, onClick }) {
       </span>
       <span className="min-w-0 flex-1">
         <span
-          className={`block text-sm font-extrabold ${selected ? "text-amber" : "text-text"}`}
+          className={`block text-base font-semibold leading-tight sm:text-lg ${
+            selected ? "text-[#7d5a1b]" : "text-[#11140d]"
+          }`}
         >
           {option.label}
         </span>
         {option.description && (
-          <span className="mt-0.5 block text-xs text-muted">{option.description}</span>
+          <span className="mt-0.5 block text-xs text-[#3b4234]">
+            {option.description}
+          </span>
         )}
       </span>
       <span
-        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
-          selected ? "border-amber bg-amber text-night" : "border-white/15 text-transparent"
+        className={`flex h-6 w-6 shrink-0 items-center justify-center border ${
+          multi ? "rounded-md" : "rounded-full"
+        } ${
+          selected
+            ? "border-[#9a6b16] bg-[#9a6b16] text-white"
+            : "border-[#253019]/30 text-transparent"
         }`}
         aria-hidden="true"
       >
@@ -96,6 +101,8 @@ function OptionTile({ option, selected, onClick }) {
 }
 
 export default function ClubQuiz({ initialAnswers, onComplete }) {
+  const reducedMotion = useReducedMotion();
+  const headingRef = useRef(null);
   const [answers, setAnswers] = useState(() => ({
     interests: initialAnswers?.interests ? [...initialAnswers.interests] : [],
     vibe: initialAnswers?.vibe || null,
@@ -103,6 +110,8 @@ export default function ClubQuiz({ initialAnswers, onComplete }) {
     extraContext: initialAnswers?.extraContext || "",
   }));
   const [index, setIndex] = useState(0);
+  const [direction, setDirection] = useState(1);
+  const [transitioning, setTransitioning] = useState(false);
   const question = QUESTIONS[index];
   const current = answers[question.id];
   const answered = question.multi
@@ -127,119 +136,174 @@ export default function ClubQuiz({ initialAnswers, onComplete }) {
   }
 
   function next() {
-    if (!answered) return;
+    if (!answered || transitioning) return;
     if (index < QUESTIONS.length - 1) {
+      setTransitioning(true);
+      setDirection(1);
       setIndex((value) => value + 1);
     } else {
       onComplete({ ...answers, extraContext: answers.extraContext.trim() });
     }
   }
 
+  function back() {
+    if (transitioning || index === 0) return;
+    setTransitioning(true);
+    setDirection(-1);
+    setIndex((value) => Math.max(0, value - 1));
+  }
+
+  const duration = reducedMotion ? 0.12 : 0.3;
+
   return (
-    <div className="mx-auto max-w-4xl">
-      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-sm font-extrabold text-muted">Club Match</p>
-          <h1 className="mt-1 text-3xl font-black tracking-tight sm:text-4xl">
-            Find your people 💚
-          </h1>
-        </div>
-        <Chip tone="sage">
-          <Sparkles size={13} aria-hidden="true" />
-          2 min vibe check
-        </Chip>
-      </div>
-
-      <Card className="relative overflow-hidden p-5 sm:p-8">
-        <Glow color="#FFB547" className="-right-12 -top-20 h-64 w-64" opacity={0.2} />
-        <Glow color="#6B5BD6" className="-bottom-24 -left-16 h-64 w-64" opacity={0.22} />
-        <div className="relative grid gap-6 md:grid-cols-[150px_1fr] md:gap-8">
-          <div className="flex items-center gap-4 md:flex-col md:items-center md:gap-2">
-            <span className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full bg-amber/10 text-amber md:h-32 md:w-32">
-              <Sparkles size={52} strokeWidth={1.4} aria-hidden="true" />
-            </span>
-            <div className="rounded-2xl bg-raised/70 px-4 py-3 text-sm font-bold md:text-center">
-              Quick vibe check! What sounds fun?
-            </div>
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between gap-3 text-xs font-bold text-muted">
-              <span>
-                Question {index + 1} of {QUESTIONS.length}
-              </span>
-              <span>{Math.round(((index + 1) / QUESTIONS.length) * 100)}%</span>
-            </div>
-            <ProgressBar
-              className="mt-2"
-              value={((index + 1) / QUESTIONS.length) * 100}
-              color="var(--color-amber)"
-              label={`Question ${index + 1} of ${QUESTIONS.length}`}
+    <section className="mx-auto flex min-h-[calc(100svh-105px)] w-full max-w-[1100px] flex-col justify-center px-2 py-6 text-[#11140d] sm:px-4 sm:py-8">
+      <div className="w-full">
+        <div className="mb-12 w-full sm:mb-14">
+          <p className="text-sm font-bold text-[#3b4234]">
+            Question {index + 1} of {QUESTIONS.length}
+          </p>
+          <div
+            className="mt-2 h-1 w-full overflow-hidden rounded-full bg-[#253019]/15"
+            role="progressbar"
+            aria-label={`Question ${index + 1} of ${QUESTIONS.length}`}
+            aria-valuemin={0}
+            aria-valuemax={QUESTIONS.length}
+            aria-valuenow={index + 1}
+          >
+            <div
+              className="h-full rounded-full bg-[#4d5d2c] transition-[width] duration-300 ease-out"
+              style={{ width: `${((index + 1) / QUESTIONS.length) * 100}%` }}
             />
+          </div>
+        </div>
 
-            <div key={question.id} className="mt-5 animate-fade-up">
-              <h2 className="text-2xl font-black tracking-tight sm:text-3xl">{question.title}</h2>
-              <p className="mt-1 text-sm text-muted">{question.helper}</p>
+        <div className="w-full">
+          <AnimatePresence mode="wait" custom={direction} initial={false}>
+            <motion.div
+              key={question.id}
+              custom={direction}
+              initial={{
+                opacity: 0,
+                y: reducedMotion ? 0 : direction > 0 ? 8 : -8,
+              }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{
+                opacity: 0,
+                y: reducedMotion ? 0 : direction > 0 ? -8 : 8,
+              }}
+              transition={{
+                duration,
+                ease: [0.22, 1, 0.36, 1],
+              }}
+              onAnimationComplete={() => {
+                if (!transitioning) return;
+                setTransitioning(false);
+                headingRef.current?.focus();
+              }}
+              className="w-full"
+            >
+              <h1
+                ref={headingRef}
+                tabIndex={-1}
+                className="mx-auto max-w-5xl text-center text-[clamp(2.75rem,5.5vw,5rem)] font-black leading-[1.05] tracking-[-0.045em] text-[#11140d] [text-shadow:0_1px_2px_rgba(255,255,255,0.5)]"
+              >
+                {question.title}
+              </h1>
+              <p className="mt-3 text-center text-[clamp(1rem,1.4vw,1.25rem)] font-medium text-[#3b4234] [text-shadow:0_1px_2px_rgba(255,255,255,0.6)]">
+                {question.helper}
+              </p>
+
               {question.freeText ? (
-                <div className="mt-5">
+                <div className="mx-auto mt-12 max-w-[640px]">
                   <label htmlFor="club-extra-context" className="sr-only">
                     Anything else you&apos;re into?
                   </label>
-                  <textarea
+                  <input
                     id="club-extra-context"
+                    type="text"
                     value={current}
                     maxLength={100}
                     onChange={(event) =>
                       setAnswers((prev) => ({ ...prev, extraContext: event.target.value }))
                     }
                     placeholder="e.g. anime, rock climbing, startups"
-                    className="min-h-24 w-full resize-y rounded-[22px] border border-white/10 bg-raised/50 p-4 text-sm text-text placeholder:text-muted focus:border-amber/50"
+                    className="min-h-16 w-full rounded-2xl border border-[#253019]/25 bg-[#fbfbf6]/95 px-5 text-xl text-[#11140d] placeholder:text-[#5b6452] focus:border-[#4d5d2c] focus:outline-2 focus:outline-offset-2 focus:outline-[#4d5d2c]"
                   />
-                  <p className="mt-1 text-right text-xs text-muted">
+                  <p className="mt-2 text-right text-xs font-medium text-[#3b4234]">
                     {current.length}/100
                   </p>
                 </div>
               ) : (
                 <div
-                  className={`mt-5 grid gap-2 ${
-                    question.id === "interests" ? "grid-cols-2 sm:grid-cols-3" : "sm:grid-cols-2"
+                  className={`quiz-option-grid mt-12 grid gap-3 sm:gap-4 ${
+                    question.multi
+                      ? "quiz-interest-grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
+                      : "quiz-short-grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
                   }`}
                   role="group"
                   aria-label={question.title}
                 >
-                  {question.options.map((option) => (
-                    <OptionTile
+                  {question.options.map((option, optionIndex) => (
+                    <motion.div
                       key={option.value}
-                      option={option}
-                      selected={
-                        question.multi
-                          ? current.includes(option.value)
-                          : current === option.value
-                      }
-                      onClick={() => choose(option.value)}
-                    />
+                      initial={{ opacity: 0, y: reducedMotion ? 0 : 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{
+                        duration: reducedMotion ? 0.12 : 0.22,
+                        delay: reducedMotion ? 0 : Math.min(optionIndex * 0.02, 0.12),
+                        ease: [0.22, 1, 0.36, 1],
+                      }}
+                    >
+                      <OptionTile
+                        option={option}
+                        selected={
+                          question.multi
+                            ? current.includes(option.value)
+                            : current === option.value
+                        }
+                        multi={question.multi}
+                        onClick={() => choose(option.value)}
+                      />
+                    </motion.div>
                   ))}
                 </div>
               )}
-            </div>
+            </motion.div>
+          </AnimatePresence>
+        </div>
 
-            <div className="mt-6 flex items-center justify-between gap-3">
-              <Button
-                variant="ghost"
-                onClick={() => setIndex((value) => Math.max(0, value - 1))}
-                disabled={index === 0}
-              >
-                <ArrowLeft size={17} aria-hidden="true" />
-                Back
-              </Button>
-              <Button onClick={next} disabled={!answered}>
-                {index === QUESTIONS.length - 1 ? "See my clubs" : "Next"}
-                <ArrowRight size={17} aria-hidden="true" />
-              </Button>
-            </div>
+        <div className="mt-10 flex min-h-12 w-full items-center justify-between gap-3">
+          {index > 0 ? (
+            <button
+              type="button"
+              onClick={back}
+              disabled={transitioning}
+              className="inline-flex min-h-12 items-center gap-2 px-2 text-sm font-extrabold text-[#253019] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#253019] disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              <ArrowLeft size={17} aria-hidden="true" />
+              Back
+            </button>
+          ) : (
+            <span />
+          )}
+          <div className="flex items-center gap-3">
+            {!answered && (
+              <span className="text-xs font-semibold text-[#3b4234]">
+                Pick at least one to continue
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={next}
+              disabled={!answered || transitioning}
+              className="inline-flex min-h-12 items-center gap-2 rounded-full bg-[#253019] px-6 text-sm font-extrabold text-[#f4f4ef] shadow-[0_8px_24px_-16px_rgba(17,20,13,0.7)] transition hover:bg-[#34431f] focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-[#253019] disabled:cursor-not-allowed disabled:bg-[#70796a] disabled:text-white"
+            >
+              {index === QUESTIONS.length - 1 ? "See my clubs" : "Next"}
+              <ArrowRight size={17} aria-hidden="true" />
+            </button>
           </div>
         </div>
-      </Card>
-    </div>
+      </div>
+    </section>
   );
 }
