@@ -263,13 +263,24 @@ export default function Forecast({ onSelectedWeekChange }) {
         <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-1 items-center justify-center px-4 py-12 text-center sm:px-6">
           <div className="max-w-3xl">
             <h1 className="animate-meadow-rise text-[clamp(3.5rem,9vw,7.4rem)] font-semibold leading-[0.9] tracking-[-0.06em] text-meadow-ink">
-              Hey{" "}
-              <span className="font-meadow-serif font-normal italic tracking-[-0.035em]">
-                {profile.name || "there"}
-              </span>{" "}
-              <span className="inline-block text-[0.62em] align-[0.12em]" aria-hidden="true">
-                👋
-              </span>
+              {profile.name ? (
+                <>
+                  Hey{" "}
+                  <span className="font-meadow-serif font-normal italic tracking-[-0.035em]">
+                    {profile.name}
+                  </span>{" "}
+                  <span className="inline-block text-[0.62em] align-[0.12em]" aria-hidden="true">
+                    👋
+                  </span>
+                </>
+              ) : (
+                <>
+                  Welcome to{" "}
+                  <span className="font-meadow-serif font-normal italic tracking-[-0.035em]">
+                    Clear Skies
+                  </span>
+                </>
+              )}
             </h1>
             <p className="mx-auto mt-6 max-w-xl animate-meadow-rise text-base font-medium leading-relaxed text-meadow-sub sm:text-lg">
               Add your syllabus to see your semester forecast.

@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import {
-  Cloud,
   CloudSun,
   GraduationCap,
   Heart,
   RotateCcw,
   Sparkles,
+  UserRound,
 } from "lucide-react";
 import { useApp } from "../context/AppContext.jsx";
 
@@ -87,13 +87,6 @@ export default function Nav({ meadow = false }) {
             className="flex min-h-11 items-center gap-2.5 rounded-full pr-2"
             aria-label="Clear Skies home"
           >
-            <span
-              className={`flex h-10 w-10 items-center justify-center rounded-2xl ${
-                meadow ? "bg-meadow-olive/10 text-meadow-olive" : "bg-amber/15 text-amber"
-              }`}
-            >
-              <Cloud size={22} strokeWidth={2.4} aria-hidden="true" />
-            </span>
             <span className="flex flex-col leading-none">
               <span
                 className={`text-lg font-black tracking-tight ${
@@ -145,7 +138,11 @@ export default function Nav({ meadow = false }) {
                     : "border-white/10 bg-raised hover:border-amber/50"
                 }`}
               >
-                <span aria-hidden="true">{profile.avatar}</span>
+                <UserRound
+                  size={21}
+                  className={meadow ? "text-meadow-olive" : "text-muted"}
+                  aria-hidden="true"
+                />
               </button>
               {menuOpen && (
                 <div
@@ -159,8 +156,13 @@ export default function Nav({ meadow = false }) {
                       meadow ? "bg-meadow-haze" : "bg-raised/60"
                     }`}
                   >
-                    <span className="text-2xl" aria-hidden="true">
-                      {profile.avatar}
+                    <span
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${
+                        meadow ? "bg-meadow-olive/10 text-meadow-olive" : "bg-raised text-muted"
+                      }`}
+                      aria-hidden="true"
+                    >
+                      <UserRound size={22} />
                     </span>
                     <div className="min-w-0">
                       <p
