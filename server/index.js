@@ -10,6 +10,7 @@ const {
 const { fallbackPlan } = require("./fallbacks/plans");
 const { fallbackChat } = require("./fallbacks/chat");
 const { fallbackClubCopy } = require("./fallbacks/clubCopy");
+const { pickRelevantText } = require("./lib/syllabusText");
 const { cleanAIShortlist, localFallback, prefilterClubs } = require("./lib/clubShortlist");
 const clubs = require("../client/src/data/clubs.json");
 
@@ -94,14 +95,19 @@ app.post("/api/extract", async (req, res) => {
 
     const response = await callLLM(
       systemPrompt,
-      `Extract every graded deadline and exam from this syllabus:\n\n${text.slice(0, 16000)}`
+      `Extract every graded deadline and exam from this syllabus:\n\n${pickRelevantText(text)}`
     );
     const parsed = parseJSON(response);
     const deadlines = validateDeadlines(parsed.deadlines);
     res.json({ deadlines, source: "ai" });
   } catch (error) {
     console.error("[extract]", error.message);
-    res.json({ deadlines: fallbackExtract(text), source: "fallback" });
+    const quota = /\b429\b|quota|rate|exhausted/i.test(error.message);
+    res.json({
+      deadlines: fallbackExtract(text),
+      source: "fallback",
+      reason: quota ? "rate_limit" : "ai_error",
+    });
   }
 });
 

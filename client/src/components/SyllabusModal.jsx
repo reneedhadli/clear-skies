@@ -116,11 +116,23 @@ export default function SyllabusModal({ open, onClose, onAdded }) {
     setLoading(true);
     setError("");
     let deadlines = [];
+    let aiProblem = "";
     try {
       const data = await postJSON("/api/extract", { text });
       deadlines = Array.isArray(data.deadlines) ? data.deadlines : [];
+      if (data.source === "fallback") aiProblem = data.reason || "ai_error";
     } catch {
       deadlines = localExtract(text);
+    }
+
+    if (!deadlines.length && aiProblem) {
+      setError(
+        aiProblem === "rate_limit"
+          ? "The AI is busy or its limit is used up, so I couldn't read this syllabus. Wait a minute and press Extract again, or try the sample syllabi."
+          : "The AI couldn't read this syllabus. Press Extract again, or try the sample syllabi."
+      );
+      setLoading(false);
+      return;
     }
 
     if (!deadlines.length) {
