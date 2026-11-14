@@ -36,6 +36,8 @@ const initialState = {
   clubCopies: {},
   chatMessages: [],
   plans: {},
+  studySessions: [],
+  agentUndo: null,
   demoLoaded: false,
 };
 
@@ -90,6 +92,10 @@ function readStoredState() {
         ? parsed.shortlistExcludedIds.filter((id) => validClubIdSet.has(id))
         : [],
       chatMessages: Array.isArray(parsed.chatMessages) ? parsed.chatMessages : [],
+      studySessions: Array.isArray(parsed.studySessions)
+        ? parsed.studySessions.filter((item) => item && item.id && item.course && item.day)
+        : [],
+      agentUndo: parsed.agentUndo && parsed.agentUndo.snapshot ? parsed.agentUndo : null,
       clubMatches: Object.fromEntries(
         Object.entries(parsed.clubMatches || {}).filter(([id]) => validClubIds.has(id))
       ),
@@ -275,6 +281,37 @@ export function AppProvider({ children }) {
           ...prev,
           chatMessages: [...prev.chatMessages, message],
         }));
+      },
+      // Stormy the agent: the checked result of one run, plus a snapshot so it can be undone.
+      applyAgentRun(runId, next, snapshot) {
+        setState((prev) => ({
+          ...prev,
+          studySessions: next.studySessions,
+          likedClubIds: next.likedClubIds,
+          clubMatches: next.clubMatches,
+          profile: { ...prev.profile, nextTermCourses: next.nextTermCourses },
+          agentUndo: { runId, snapshot },
+        }));
+      },
+      undoAgentRun(runId) {
+        setState((prev) => {
+          if (!prev.agentUndo || prev.agentUndo.runId !== runId) return prev;
+          const { snapshot } = prev.agentUndo;
+          return {
+            ...prev,
+            studySessions: snapshot.studySessions,
+            likedClubIds: snapshot.likedClubIds,
+            clubMatches: snapshot.clubMatches,
+            profile: { ...prev.profile, nextTermCourses: snapshot.nextTermCourses },
+            chatMessages: prev.chatMessages.map((message) =>
+              message.agent?.runId === runId ? { ...message, agent: { ...message.agent, undone: true } } : message
+            ),
+            agentUndo: null,
+          };
+        });
+      },
+      clearStudySessions() {
+        setState((prev) => ({ ...prev, studySessions: [], agentUndo: null }));
       },
       clearChat() {
         setState((prev) => ({ ...prev, chatMessages: [] }));

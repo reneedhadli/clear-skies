@@ -6,6 +6,7 @@ import {
   BookOpen,
   Check,
   CloudSun,
+  Undo2,
   Maximize2,
   Minus,
   MoreVertical,
@@ -22,11 +23,21 @@ import { buildForecast } from "../lib/forecast.js";
 import { weatherMeta } from "../lib/weather.js";
 import { postJSON } from "../lib/api.js";
 import { localChat } from "../lib/localAI.js";
+import { clubs as allClubs } from "../data/clubs.js";
+import { normalizeDeadline } from "../lib/deadlines.js";
+import {
+  affectedWeek,
+  buildAgentContext,
+  localAgent,
+  runAgentActions,
+  weatherShift,
+} from "../lib/studyAgent.js";
 
 const QUICK_REPLIES = {
   forecast: [
+    "Rebalance my week",
+    "Make a study plan",
     "Why is this week stormy?",
-    "Plan my week",
     "When's my next sunny week?",
   ],
   degree: [
@@ -70,10 +81,61 @@ function CourseCard({ code, onAdd, added }) {
   );
 }
 
+function AgentSummary({ agent, canUndo, onUndo }) {
+  const WEATHER_WORD = (key) => weatherMeta(key);
+  const was = agent.shift ? WEATHER_WORD(agent.shift.was) : null;
+  const now = agent.shift ? WEATHER_WORD(agent.shift.now) : null;
+  return (
+    <div className="mt-2 rounded-2xl border border-white/10 bg-surface/90 p-3 text-xs">
+      {agent.applied.length > 0 && (
+        <>
+          <p className="font-extrabold text-sage">Stormy did:</p>
+          <ul className="mt-1 space-y-1 text-text">
+            {agent.applied.map((line) => (
+              <li key={line}>✓ {line}</li>
+            ))}
+          </ul>
+        </>
+      )}
+      {agent.shift && agent.shift.was !== agent.shift.now && (
+        <p className="mt-2 font-bold text-muted">
+          {agent.shift.day}: {was.emoji} {was.label} → {now.emoji} {now.label}
+        </p>
+      )}
+      {agent.rejected.length > 0 && (
+        <>
+          <p className="mt-2 font-extrabold text-amber">I couldn&apos;t do:</p>
+          <ul className="mt-1 space-y-1 text-muted">
+            {agent.rejected.map((line) => (
+              <li key={line}>• {line}</li>
+            ))}
+          </ul>
+        </>
+      )}
+      {agent.applied.length > 0 && (
+        <div className="mt-2">
+          {agent.undone ? (
+            <span className="font-bold text-muted">Undone ✓</span>
+          ) : canUndo ? (
+            <button
+              type="button"
+              onClick={onUndo}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-white/15 px-3 font-extrabold text-text transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber"
+            >
+              <Undo2 size={14} aria-hidden="true" />
+              Undo
+            </button>
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function welcomeMessage() {
   return {
     role: "assistant",
-    content: "Hey! I'm Stormy 🐻 Ask me about your week, your courses, or clubs.",
+    content: "Hey! I'm Stormy 🐻 Ask me about your week, your courses, or clubs. I can also plan your studying and rebalance a stormy week.",
     courseCodes: [],
     warning: null,
   };
@@ -82,12 +144,28 @@ function welcomeMessage() {
 export default function FloatingStormy({ page, open, onOpen, onClose }) {
   const {
     profile,
-    deadlines,
+    deadlines: rawDeadlines,
     quizAnswers,
     chatMessages,
+    studySessions,
+    agentUndo,
+    clubShortlist,
+    likedClubIds,
+    clubMatches,
     actions,
   } = useApp();
-  const forecast = useMemo(() => buildForecast(deadlines), [deadlines]);
+  const deadlines = useMemo(() => rawDeadlines.map(normalizeDeadline), [rawDeadlines]);
+  const forecast = useMemo(() => buildForecast(deadlines, studySessions), [deadlines, studySessions]);
+  const knownCourses = useMemo(
+    () => [
+      ...new Set([
+        ...deadlines.map((item) => item.course),
+        ...profile.completedCourses,
+        ...profile.nextTermCourses,
+      ]),
+    ],
+    [deadlines, profile.completedCourses, profile.nextTermCourses]
+  );
   const current = forecast.find((week) => week.week === profile.currentWeek) || forecast[0];
   const weather = deadlines.length ? current.weather : "cloudy";
   const weatherMetaForWeek = weatherMeta(weather);
@@ -183,11 +261,59 @@ export default function FloatingStormy({ page, open, onOpen, onClose }) {
     setInput("");
     setTyping(true);
 
-    let reply;
+    const agentContext = buildAgentContext({
+      profile,
+      deadlines,
+      studySessions,
+      forecast,
+      clubs: clubShortlist,
+      knownCourses,
+      eligibleCourses: eligible.map((course) => course.code),
+    });
+
+    // One AI call returns the reply and the actions it wants. If the AI is
+    // unavailable, the app's own planner handles the action phrases instead.
+    let reply = null;
     try {
-      reply = await postJSON("/api/chat", { message, history, context });
+      reply = await postJSON("/api/stormy/agent", { message, history, context: agentContext });
     } catch {
-      reply = localChat(message, context);
+      reply = null;
+    }
+    if (!reply || reply.source === "fallback") {
+      const local = localAgent(message, {
+        currentWeek: profile.currentWeek,
+        deadlines,
+        studySessions,
+      });
+      if (local.handled) reply = { reply: local.reply, actions: local.actions, courseCodes: [], warning: null };
+      else if (!reply) reply = localChat(message, context);
+    }
+
+    // The app checks every requested action, then does the ones that pass.
+    let agent = null;
+    const requested = Array.isArray(reply.actions) ? reply.actions : [];
+    if (requested.length) {
+      const current = {
+        studySessions,
+        nextTermCourses: profile.nextTermCourses,
+        likedClubIds,
+        clubMatches,
+      };
+      const result = runAgentActions(current, requested, {
+        currentWeek: profile.currentWeek,
+        knownCourses,
+        clubs: allClubs.filter((club) => clubShortlist.some((item) => item.id === club.id)),
+        clubMatchById: Object.fromEntries(clubShortlist.map((club) => [club.id, club.match])),
+      });
+      if (result.applied.length) {
+        const runId = `run-${Date.now()}`;
+        const week = affectedWeek(studySessions, requested, profile.currentWeek);
+        const shift = weatherShift(deadlines, studySessions, result.next.studySessions, week);
+        actions.applyAgentRun(runId, result.next, current);
+        agent = { runId, applied: result.applied, rejected: result.rejected, shift, undone: false };
+      } else if (result.rejected.length) {
+        agent = { runId: null, applied: [], rejected: result.rejected, shift: null, undone: false };
+      }
     }
 
     actions.addChatMessage({
@@ -195,6 +321,7 @@ export default function FloatingStormy({ page, open, onOpen, onClose }) {
       content: reply.reply || "Hmm, my weather radar blinked. Ask me again?",
       courseCodes: reply.courseCodes || [],
       warning: reply.warning || null,
+      agent,
     });
     setTyping(false);
     inputRef.current?.focus();
@@ -345,6 +472,13 @@ export default function FloatingStormy({ page, open, onOpen, onClose }) {
                                   <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
                                   <p>{message.warning}</p>
                                 </div>
+                              )}
+                              {message.agent && (
+                                <AgentSummary
+                                  agent={message.agent}
+                                  canUndo={Boolean(message.agent.runId) && agentUndo?.runId === message.agent.runId}
+                                  onUndo={() => actions.undoAgentRun(message.agent.runId)}
+                                />
                               )}
                               {message.courseCodes?.length > 0 && (
                                 <div>

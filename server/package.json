@@ -9,7 +9,8 @@
     "dev:secure": "op run --env-file=.env -- node index.js",
     "test:degree": "node degree/test.js",
     "build-catalogue": "node degree/build-catalogue.js",
-    "warm-pathways": "node degree/warm.js"
+    "warm-pathways": "node degree/warm.js",
+    "test:agent": "node test-agent.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

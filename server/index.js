@@ -11,6 +11,7 @@ const { fallbackPlan } = require("./fallbacks/plans");
 const { fallbackChat } = require("./fallbacks/chat");
 const { fallbackClubCopy } = require("./fallbacks/clubCopy");
 const { pickRelevantText } = require("./lib/syllabusText");
+const { cleanActions, AGENT_SYSTEM_PROMPT } = require("./lib/agentActions");
 const { cleanAIShortlist, localFallback, prefilterClubs } = require("./lib/clubShortlist");
 const clubs = require("../client/src/data/clubs.json");
 
@@ -192,6 +193,53 @@ Reply as JSON only.`;
   } catch (error) {
     console.error("[chat]", error.message);
     res.json({ ...fallbackChat(message, { ...context, courses }), source: "fallback" });
+  }
+});
+
+// Stormy as an agent: ONE AI call returns a reply plus the actions it wants.
+// The app checks and runs the actions (client/src/lib/studyAgent.js). Nothing runs here.
+app.post("/api/stormy/agent", async (req, res) => {
+  const message = String(req.body?.message || "").trim().slice(0, 600);
+  if (!message) return res.status(400).json({ error: "Please type a message." });
+  const history = Array.isArray(req.body?.history) ? req.body.history.slice(-6) : [];
+  const context = req.body?.context && typeof req.body.context === "object" ? req.body.context : {};
+  const eligible = new Set(Array.isArray(context.eligibleCourses) ? context.eligibleCourses : []);
+
+  try {
+    const userPrompt = `Recent conversation:
+${history.map((item) => `${item.role}: ${String(item.content || "").slice(0, 300)}`).join("\n") || "(new conversation)"}
+
+Today is in week ${context.currentWeek || 1} of the term.
+Student: ${JSON.stringify(context.profile || {})}
+Forecast (next weeks): ${JSON.stringify(context.forecast || [])}
+Deadlines (next weeks): ${JSON.stringify(context.deadlines || [])}
+Study sessions (next weeks): ${JSON.stringify(context.studySessions || [])}
+knownCourses: ${JSON.stringify(context.knownCourses || [])}
+eligibleCourses: ${JSON.stringify(context.eligibleCourses || [])}
+clubs: ${JSON.stringify(context.clubs || [])}
+Limits: ${JSON.stringify(context.limits || {})}
+
+Student message: ${message}
+
+Reply as JSON only.`;
+    const parsed = parseJSON(await callLLM(AGENT_SYSTEM_PROMPT, userPrompt));
+    const reply = String(parsed.reply || "").trim();
+    if (!reply) throw new Error("Empty reply");
+    const actions = cleanActions(parsed.actions);
+    const courseCodes = (Array.isArray(parsed.courseCodes) ? parsed.courseCodes : [])
+      .map((code) => String(code).trim())
+      .filter((code) => (eligible.size ? eligible.has(code) : false))
+      .slice(0, 4);
+    const warning =
+      typeof parsed.warning === "string" && parsed.warning.trim() ? parsed.warning.trim().slice(0, 140) : null;
+    res.json({ reply: reply.slice(0, 500), courseCodes, warning, actions, source: "ai" });
+  } catch (error) {
+    console.error("[stormy-agent]", error.message);
+    res.json({
+      ...fallbackChat(message, { ...context, courses: [] }),
+      actions: [],
+      source: "fallback",
+    });
   }
 });
 

@@ -2,13 +2,16 @@ import { TOTAL_WEEKS } from "../config/term.js";
 
 export { TOTAL_WEEKS };
 
-export function buildForecast(deadlines = []) {
+export function buildForecast(deadlines = [], studySessions = []) {
   return Array.from({ length: TOTAL_WEEKS }, (_, index) => {
     const week = index + 1;
     const due = deadlines
       .filter((item) => Number(item.week) === week)
       .sort((a, b) => dayOrder(a.day) - dayOrder(b.day));
-    const weight = due.reduce((sum, item) => sum + (Number(item.weight) || 0), 0);
+    const study = studySessions.filter((item) => Number(item.week) === week);
+    const studyHours = study.reduce((sum, item) => sum + (Number(item.hours) || 0), 0);
+    // Planned study time adds to how heavy the week feels (1 point per hour).
+    const weight = due.reduce((sum, item) => sum + (Number(item.weight) || 0), 0) + studyHours;
     const hasFinal = due.some((item) => item.type === "final");
     const hasMidterm = due.some((item) => item.type === "midterm");
     const bigItems = due.filter((item) => (Number(item.weight) || 0) >= 10).length;
@@ -29,6 +32,8 @@ export function buildForecast(deadlines = []) {
       weather,
       stress: Math.min(100, Math.round(weight * 2.5)),
       due,
+      study,
+      studyHours,
     };
   });
 }

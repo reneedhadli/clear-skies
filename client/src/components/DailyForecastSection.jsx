@@ -167,8 +167,12 @@ export default function DailyForecastSection({ week, clubEvents, onBackToWeek })
         const due = week.due
           .filter((item) => item.day === day.short)
           .sort((a, b) => timeOrder(a.time) - timeOrder(b.time));
-        const weather = dailyWeather(due);
+        const study = (week.study || []).filter((item) => item.day === day.short);
+        const studyHours = study.reduce((sum, item) => sum + (Number(item.hours) || 0), 0);
+        const weather = dailyWeather(due, studyHours);
         return {
+          study,
+          studyHours,
           ...day,
           date,
           dateKey: dateKey(date),
@@ -335,6 +339,23 @@ export default function DailyForecastSection({ week, clubEvents, onBackToWeek })
                 </p>
               )}
             </div>
+
+            {day.study.length > 0 && (
+              <div className="mt-5 rounded-2xl border border-meadow-ink/10 bg-white/55 px-4 py-3">
+                <h3 className="text-xs font-extrabold text-meadow-ink">Study time · {day.studyHours}h</h3>
+                <ul className="mt-2 space-y-1.5">
+                  {day.study.map((item) => (
+                    <li key={item.id} className="text-sm font-semibold text-meadow-ink">
+                      {item.course} · {item.hours}h
+                      {item.title ? <span className="font-medium text-meadow-sub"> · {item.title}</span> : null}
+                      {item.by === "stormy" && (
+                        <span className="ml-2 text-[10px] font-extrabold uppercase text-[#3d6237]">Stormy</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {day.events.length > 0 && (
               <div className="mt-5 rounded-2xl border border-[#4d7a45]/15 bg-[#4d7a45]/[0.07] px-4 py-3">

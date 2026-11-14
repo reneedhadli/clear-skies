@@ -64,12 +64,18 @@ export function dateKey(date) {
   ).padStart(2, "0")}`;
 }
 
-export function dailyWeather(items) {
-  if (!items.length) return "sunny";
+// Study hours count too: 1 hour of planned study weighs like 2 points of deadline weight.
+// (A 20% midterm plus 5h of cramming is a blizzard; the same midterm with 1h of review is a storm.)
+export const STUDY_POINTS_PER_HOUR = 2;
+
+export function dailyWeather(items, studyHours = 0) {
+  const hours = Number(studyHours) || 0;
+  if (!items.length && hours < 3) return "sunny";
   if (items.some((item) => item.type === "final")) return "deepfreeze";
   const totalWeight = items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0);
+  const load = totalWeight + hours * STUDY_POINTS_PER_HOUR;
   const largeItems = items.filter((item) => Number(item.weight) >= 10).length;
-  if (totalWeight >= 25 || largeItems >= 2) return "blizzard";
-  if (totalWeight >= 10) return "storm";
+  if (load >= 25 || largeItems >= 2) return "blizzard";
+  if (load >= 10) return "storm";
   return "cloudy";
 }

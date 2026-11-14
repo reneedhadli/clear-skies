@@ -103,6 +103,12 @@ function ClubPlans({ events }) {
   );
 }
 
+const DAY_RANK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+function dayRank(day) {
+  const index = DAY_RANK.indexOf(day);
+  return index === -1 ? 99 : index;
+}
+
 export default function Forecast() {
   const {
     profile,
@@ -110,10 +116,14 @@ export default function Forecast() {
     deadlines,
     plans,
     likedClubIds,
+    studySessions,
     actions,
   } = useApp();
   const normalizedDeadlines = useMemo(() => deadlines.map(normalizeDeadline), [deadlines]);
-  const forecast = useMemo(() => buildForecast(normalizedDeadlines), [normalizedDeadlines]);
+  const forecast = useMemo(
+    () => buildForecast(normalizedDeadlines, studySessions),
+    [normalizedDeadlines, studySessions]
+  );
   const hasForecast = normalizedDeadlines.length > 0;
   const reduceMotion = useReducedMotion();
   const clubEvents = useMemo(
@@ -424,6 +434,28 @@ export default function Forecast() {
                       </p>
                     )}
                   </div>
+
+                  {selected.study.length > 0 && (
+                    <div className="mt-5 border-t border-meadow-ink/10 pt-4">
+                      <h3 className="text-xs font-extrabold text-meadow-sub">
+                        Study plan · {selected.studyHours}h
+                      </h3>
+                      <ul className="mt-2 space-y-1.5">
+                        {[...selected.study]
+                          .sort((a, b) => dayRank(a.day) - dayRank(b.day))
+                          .map((item) => (
+                            <li key={item.id} className="text-sm font-semibold text-meadow-ink">
+                              {item.day} · {item.course} · {item.hours}h
+                              {item.by === "stormy" && (
+                                <span className="ml-2 rounded-full bg-[#4d7a45]/12 px-2 py-0.5 text-[10px] font-extrabold text-[#3d6237]">
+                                  Stormy
+                                </span>
+                              )}
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
+                  )}
 
                   <ClubPlans events={selectedClubEvents} />
 
