@@ -1,0 +1,45 @@
+MATH 125 — Linear Algebra I
+University of Alberta · Fall Term · 3 credits
+Instructor: Dr. Hannah Okafor
+Lectures: Monday, Wednesday, Friday 9:00–9:50, TELUS 1-01
+
+COURSE DESCRIPTION
+Vectors, systems of linear equations, matrices, determinants, eigenvalues, and
+diagonalization. We focus on both computation and geometric intuition.
+
+EVALUATION
+Quizzes 9% · Written assignments 8% · Midterm 20% · Final exam 35% · Labs 28%
+(Your section's lab weighting is confirmed in the first lab.)
+
+IMPORTANT DATES
+Week 2  Quiz 1: vectors on Thursday, 3%
+Week 3  Assignment 1 due Friday, 3%
+Week 4  Quiz 2: matrices on Thursday, 3%
+Week 5  Assignment 2 due Friday, 4%
+Week 6  Quiz 3: determinants on Tuesday, 4%
+Week 7  Reading week
+Week 8  Midterm on Wednesday, 20%. Covers weeks 1–6.
+Week 10 Assignment 3 due Friday, 5%
+Week 12 Assignment 4 due Friday, 5%
+Week 15 Final exam on Friday, 35%. Cumulative.
+
+TOPIC OUTLINE
+Week 1  Vectors in R^n
+Week 2  Dot products and projections
+Week 3  Systems of equations and row reduction
+Week 4  Matrix operations and inverses
+Week 5  Determinants
+Week 6  Vector spaces and subspaces
+Week 7  Reading week
+Week 8  Midterm and basis
+Week 9  Dimension and rank
+Week 10 Linear transformations
+Week 11 Eigenvalues and eigenvectors
+Week 12 Diagonalization
+Week 13 Applications and review
+Week 14 Review week
+Week 15 Final exam
+
+NOTE
+Quizzes are 15 minutes at the start of class. One page of handwritten notes is allowed
+on the midterm. Calculators are not permitted.

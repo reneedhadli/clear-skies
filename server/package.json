@@ -1,0 +1,20 @@
+{
+  "name": "clear-skies-server",
+  "private": true,
+  "version": "1.0.0",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "node --watch index.js",
+    "start": "node index.js",
+    "dev:secure": "op run --env-file=.env -- node index.js",
+    "test:degree": "node degree/test.js",
+    "build-catalogue": "node degree/build-catalogue.js",
+    "warm-pathways": "node degree/warm.js",
+    "test:agent": "node test-agent.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0"
+  }
+}

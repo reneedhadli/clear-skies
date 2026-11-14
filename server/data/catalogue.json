@@ -1,0 +1,452 @@
+{
+ "_note": "Fetched 2026-11-13 from apps.ualberta.ca/catalogue. 'verified' entries have the official requirement text. 'listing' entries only have a title; their prerequisites are fetched live and cached.",
+ "courses": {
+  "CMPUT 101": {
+   "code": "CMPUT 101",
+   "title": "Introduction to Computing",
+   "units": 3,
+   "prereqText": null,
+   "coreqText": null,
+   "antireqText": "This course cannot be taken for credit if credit has been obtained in CMPUT 174, 175, 274, 275, or ENCMP 100.",
+   "source": "verified"
+  },
+  "CMPUT 174": {
+   "code": "CMPUT 174",
+   "title": "Introduction to the Foundations of Computation I",
+   "units": 3,
+   "prereqText": "Prerequisite: Math 30, 30-1, or 30-2.",
+   "coreqText": null,
+   "antireqText": "Credit cannot be obtained for both CMPUT 174 and CMPUT 274. Credit cannot be obtained for both CMPUT 174 and ENCMP 100.",
+   "source": "verified"
+  },
+  "CMPUT 175": {
+   "code": "CMPUT 175",
+   "title": "Introduction to the Foundations of Computation II",
+   "units": 3,
+   "prereqText": "Prerequisite: CMPUT 174 or ENCMP 100.",
+   "coreqText": null,
+   "antireqText": "Credit cannot be obtained for both CMPUT 175 and CMPUT 275.",
+   "source": "verified"
+  },
+  "CMPUT 201": {
+   "code": "CMPUT 201",
+   "title": "Practical Programming Methodology",
+   "units": 3,
+   "prereqText": "Prerequisite: CMPUT 175.",
+   "coreqText": null,
+   "antireqText": "Credit cannot be obtained for both CMPUT 201 and CMPUT 275.",
+   "source": "verified"
+  },
+  "CMPUT 204": {
+   "code": "CMPUT 204",
+   "title": "Algorithms I",
+   "units": 3,
+   "prereqText": "Prerequisites: CMPUT 175 or 275, and CMPUT 272; and one of MATH 100, 114, 117, 134, 144, or 154.",
+   "coreqText": null,
+   "antireqText": null,
+   "source": "verified"
+  },
+  "CMPUT 229": {
+   "code": "CMPUT 229",
+   "title": "Computer Organization and Architecture I",
+   "units": 3,
+   "prereqText": "Prerequisite: CMPUT 201 or 275.",
+   "coreqText": null,
+   "antireqText": "Credit may be obtained in only one of CMPUT 229, E E 380 or ECE 212.",
+   "source": "verified"
+  },
+  "CMPUT 272": {
+   "code": "CMPUT 272",
+   "title": "Formal Systems and Logic in Computing Science",
+   "units": 3,
+   "prereqText": "Prerequisites: CMPUT 101, 174, 175, 274, SCI 100, or ENCMP 100.",
+   "coreqText": null,
+   "antireqText": null,
+   "source": "verified"
+  },
+  "CMPUT 291": {
+   "code": "CMPUT 291",
+   "title": "Introduction to File and Database Management",
+   "units": 3,
+   "prereqText": "Prerequisites: CMPUT 175 or 274, and 272.",
+   "coreqText": "Corequisite: one of CMPUT 201 or 275.",
+   "antireqText": "Credit may be obtained in only one of CMPUT 291, BTM 415, or MIS 415.",
+   "source": "verified"
+  },
+  "CMPUT 301": {
+   "code": "CMPUT 301",
+   "title": "Introduction to Software Engineering",
+   "units": 3,
+   "prereqText": "Prerequisite: CMPUT 201 or CMPUT 275.",
+   "coreqText": null,
+   "antireqText": "Credit may be obtained in only one of CMPUT 301, BTM 419, or MIS 419.",
+   "source": "verified"
+  },
+  "CMPUT 304": {
+   "code": "CMPUT 304",
+   "title": "Algorithms II",
+   "units": 3,
+   "prereqText": "Prerequisites: CMPUT 204; one of STAT 151, 161, 181, 235, 265, SCI 151, or MATH 181; and one of MATH 102, 125, 126, 127.",
+   "coreqText": null,
+   "antireqText": null,
+   "source": "verified"
+  },
+  "CMPUT 191": {
+   "code": "CMPUT 191",
+   "title": "Introduction to Data Science",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 195": {
+   "code": "CMPUT 195",
+   "title": "Introduction to Principles and Techniques of Data Science",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 200": {
+   "code": "CMPUT 200",
+   "title": "Responsible Data Science and Artificial Intelligence",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 206": {
+   "code": "CMPUT 206",
+   "title": "Introduction to Digital Image Processing",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 250": {
+   "code": "CMPUT 250",
+   "title": "Computers and Games",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 256": {
+   "code": "CMPUT 256",
+   "title": "Game Artificial Intelligence",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 261": {
+   "code": "CMPUT 261",
+   "title": "Introduction to Artificial Intelligence",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 267": {
+   "code": "CMPUT 267",
+   "title": "Machine Learning I",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 274": {
+   "code": "CMPUT 274",
+   "title": "Accelerated Introduction to the Foundations of Computation I",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 275": {
+   "code": "CMPUT 275",
+   "title": "Accelerated Introduction to the Foundations of Computation II",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 300": {
+   "code": "CMPUT 300",
+   "title": "Computers and Society",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 302": {
+   "code": "CMPUT 302",
+   "title": "Introduction to Human Computer Interaction",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 303": {
+   "code": "CMPUT 303",
+   "title": "Algorithmics in Practice",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 307": {
+   "code": "CMPUT 307",
+   "title": "3D Modeling and Animation",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 308": {
+   "code": "CMPUT 308",
+   "title": "Video Processing and Applications",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 312": {
+   "code": "CMPUT 312",
+   "title": "Introduction to Robotics and Mechatronics",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 313": {
+   "code": "CMPUT 313",
+   "title": "Computer Networks",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 325": {
+   "code": "CMPUT 325",
+   "title": "Non-Procedural Programming Languages",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 328": {
+   "code": "CMPUT 328",
+   "title": "Visual Recognition",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 329": {
+   "code": "CMPUT 329",
+   "title": "Computer Organization and Architecture II",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 331": {
+   "code": "CMPUT 331",
+   "title": "Computational Cryptography",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 333": {
+   "code": "CMPUT 333",
+   "title": "Security in a Networked World",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 340": {
+   "code": "CMPUT 340",
+   "title": "Introduction to Numerical Methods",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 350": {
+   "code": "CMPUT 350",
+   "title": "Advanced Games Programming",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 355": {
+   "code": "CMPUT 355",
+   "title": "Games, Puzzles, Algorithms",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 361": {
+   "code": "CMPUT 361",
+   "title": "Introduction to Information Retrieval",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 365": {
+   "code": "CMPUT 365",
+   "title": "Introduction to Reinforcement Learning",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 366": {
+   "code": "CMPUT 366",
+   "title": "Search and Planning in Artificial Intelligence",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 379": {
+   "code": "CMPUT 379",
+   "title": "Operating System Concepts",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 382": {
+   "code": "CMPUT 382",
+   "title": "Introduction to GPU Programming",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 391": {
+   "code": "CMPUT 391",
+   "title": "Database Management Systems",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 393": {
+   "code": "CMPUT 393",
+   "title": "Scalable Data-Intensive Analytics",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 401": {
+   "code": "CMPUT 401",
+   "title": "Software Process and Product Management",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 402": {
+   "code": "CMPUT 402",
+   "title": "Software Quality",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 403": {
+   "code": "CMPUT 403",
+   "title": "Algorithmics in Competitive Programming",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 404": {
+   "code": "CMPUT 404",
+   "title": "Web Applications and Architecture",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 411": {
+   "code": "CMPUT 411",
+   "title": "Introduction to Computer Graphics",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 412": {
+   "code": "CMPUT 412",
+   "title": "Experimental Mobile Robotics",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 414": {
+   "code": "CMPUT 414",
+   "title": "Introduction to Multimedia Technology",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 415": {
+   "code": "CMPUT 415",
+   "title": "Compiler Design",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 416": {
+   "code": "CMPUT 416",
+   "title": "Foundations of Program Analysis",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 428": {
+   "code": "CMPUT 428",
+   "title": "Computer Vision",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 429": {
+   "code": "CMPUT 429",
+   "title": "Computer Systems and Architecture",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 455": {
+   "code": "CMPUT 455",
+   "title": "Search, Knowledge and Simulation",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 461": {
+   "code": "CMPUT 461",
+   "title": "Introduction to Natural Language Processing",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 463": {
+   "code": "CMPUT 463",
+   "title": "Probabilistic Graphical Models",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 466": {
+   "code": "CMPUT 466",
+   "title": "Machine Learning Essentials",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 467": {
+   "code": "CMPUT 467",
+   "title": "Machine Learning II",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 469": {
+   "code": "CMPUT 469",
+   "title": "Artificial Intelligence Capstone",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 474": {
+   "code": "CMPUT 474",
+   "title": "Formal Languages, Automata, and Computability",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  },
+  "CMPUT 481": {
+   "code": "CMPUT 481",
+   "title": "Parallel and Distributed Systems",
+   "units": 3,
+   "prereqKnown": false,
+   "source": "listing"
+  }
+ }
+}

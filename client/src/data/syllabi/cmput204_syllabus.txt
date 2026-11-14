@@ -1,0 +1,33 @@
+CMPUT 204 — Algorithms I
+University of Alberta · Fall Term · 3 credits
+Instructor: Dr. Marcus Chen
+Lectures: Monday, Wednesday, Friday 11:00–11:50, CCIS 1-140
+
+COURSE DESCRIPTION
+How do we know an algorithm is good? We will study asymptotic analysis, divide and
+conquer, sorting, graph algorithms, greedy methods, and dynamic programming, with
+proofs and hands-on problem sets.
+
+ASSESSMENT
+Quizzes 6% · Assignments 32% · Midterm 27% · Final exam 35%
+
+WEEKLY PLAN
+Week 1  Introduction and stable matching
+Week 2  Asymptotic notation and runtime analysis
+Week 3  Divide and conquer. Quiz 1: asymptotics on Wednesday, 3%
+Week 4  Mergesort and recurrences. Assignment 1: divide & conquer due Friday, 8%
+Week 5  Heaps and priority queues
+Week 6  Graph search and BFS/DFS
+Week 7  Midterm on Tuesday, 20%. In class, closed book.
+Week 8  Reading week — rest and catch up
+Week 9  Shortest paths. Assignment 2: graphs due Friday, 15%
+Week 10 Minimum spanning trees
+Week 11 Greedy algorithms. Assignment 3: greedy due Friday, 12%
+Week 12 Dynamic programming
+Week 13 Network flow and review
+Week 14 Final exam on Thursday, 35%
+Week 15 No classes
+
+POLICIES
+Assignments are submitted on eClass. You may discuss ideas with classmates, but write
+solutions alone. No late submissions without an instructor-approved excuse.

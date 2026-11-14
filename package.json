@@ -1,0 +1,19 @@
+{
+  "name": "clear-skies",
+  "private": true,
+  "version": "1.0.0",
+  "description": "See the storms coming, from this week's midterms to graduation.",
+  "scripts": {
+    "dev": "concurrently -n client,server -c cyan,magenta \"npm:dev:client\" \"npm:dev:server\"",
+    "dev:client": "npm --prefix client run dev",
+    "dev:server": "npm --prefix server run dev",
+    "dev:secure": "cd server && op run --env-file=.env -- node index.js",
+    "build": "npm --prefix client run build",
+    "test": "npm --prefix client run test",
+    "import:clubs": "node scripts/import-clubs.js",
+    "setup": "npm install && npm --prefix client install && npm --prefix server install"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

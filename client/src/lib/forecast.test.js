@@ -1,0 +1,214 @@
+import assert from "node:assert/strict";
+import { buildForecast } from "./forecast.js";
+import { clubEventsForForecast } from "./clubs.js";
+import {
+  buildGraduationTerms,
+  estimateCourseDeadlines,
+  forecastForCourses,
+} from "./degreeForecast.js";
+import { courses } from "../data/courses.js";
+import { demoCompleted } from "../data/demo.js";
+import { getCurrentWeek, getDateForWeekDay, formatDate } from "../config/term.js";
+import { dailyWeather, normalizeDeadline, timeOrder } from "./deadlines.js";
+import {
+  buildLocalForecastReport,
+  spokenReportText,
+  splitReportSentences,
+} from "./forecastReport.js";
+
+const d = (week, weight, type = "assignment", day = "Mon") => ({
+  course: "CMPUT 201",
+  title: "Test item",
+  type,
+  week,
+  day,
+  weight,
+});
+
+const forecast = buildForecast([
+  d(1, 4, "quiz"),
+  d(2, 5, "quiz"),
+  d(3, 15),
+  d(4, 30),
+  d(5, 1, "midterm"),
+  d(6, 10),
+  d(6, 10),
+  d(6, 10),
+  d(14, 5, "final"),
+  d(15, 100, "final"),
+]);
+
+assert.equal(forecast[0].weather, "sunny", "weight 4 stays sunny");
+assert.equal(forecast[1].weather, "cloudy", "weight 5 to 14 is cloudy");
+assert.equal(forecast[2].weather, "storm", "weight 15 is storm");
+assert.equal(forecast[3].weather, "blizzard", "weight 30 is blizzard");
+assert.equal(forecast[4].weather, "storm", "any midterm makes it storm");
+assert.equal(forecast[5].weather, "blizzard", "three 10-weight items is blizzard");
+assert.equal(forecast[13].weather, "deepfreeze", "week 14 final freezes over");
+assert.equal(forecast[14].weather, "deepfreeze", "week 15 final freezes over");
+assert.equal(forecast[1].stress, 13, "stress is weight x 2.5");
+assert.equal(forecast[14].stress, 100, "stress is capped at 100");
+assert.equal(forecast[0].due.length, 1, "due items are attached to their week");
+assert.equal(buildForecast().length, 15, "forecast always has 15 weeks");
+assert.equal(
+  getCurrentWeek(new Date("2026-09-02T12:00:00")),
+  1,
+  "the first day of term is week 1"
+);
+assert.equal(
+  getCurrentWeek(new Date("2026-09-09T12:00:00")),
+  2,
+  "week boundaries align with the Monday-to-Sunday daily forecast"
+);
+assert.equal(
+  getCurrentWeek(new Date("2027-01-01T12:00:00")),
+  15,
+  "dates beyond the term are clamped to the last week"
+);
+assert.equal(formatDate(getDateForWeekDay(1, "Wed")), "Sep 2", "daily dates align to term start");
+
+const eventForecast = buildForecast([d(3, 20, "midterm"), d(4, 30)]);
+const likedClubs = [
+  {
+    id: "event-club",
+    name: "Event Club",
+    emoji: "🌦️",
+    nextEvent: { title: "Club night", week: 3, day: "Thursday", time: "7pm" },
+    isDemoEvent: false,
+  },
+  { id: "meeting-club", meetingDay: "Tuesday", nextEvent: null },
+  { id: "no-event-club", meetingDay: null, nextEvent: null },
+];
+const clubEvents = clubEventsForForecast(
+  ["event-club", "meeting-club", "no-event-club"],
+  likedClubs,
+  eventForecast,
+  1
+);
+assert.equal(clubEvents.length, 2, "clubs without events or meeting days do not add forecast items");
+assert.equal(clubEvents[0].week, 3, "a club event stays on its listed week");
+assert.equal(clubEvents[0].weather, "storm", "a club event inherits the event week's weather");
+assert.equal(clubEvents[1].week, 1, "meetups use the next sunny week from the current week");
+assert.equal(clubEvents[1].title, "Club meetup", "regular meetings use a generic event title");
+assert.equal(
+  eventForecast[2].weather,
+  "storm",
+  "club events do not change the workload forecast"
+);
+assert.equal(
+  clubEventsForForecast(["meeting-club"], likedClubs, eventForecast, 3)[0].week,
+  5,
+  "regular meetings skip storm weeks and use the next sunny week"
+);
+
+const estimate = estimateCourseDeadlines([
+  courses.find((course) => course.code === "CMPUT 201"),
+  courses.find((course) => course.code === "ENGL 102"),
+]);
+assert.equal(estimate.length, 12, "each estimated course has assignments, a midterm, and a final");
+assert.equal(
+  estimate.find((item) => item.course === "CMPUT 201" && item.type === "assignment").weight,
+  7,
+  "heavy workload items carry more weight than light workload items"
+);
+assert.equal(
+  estimate.find((item) => item.course === "ENGL 102" && item.type === "assignment").weight,
+  2,
+  "light workload items use the lighter estimated weight"
+);
+assert.equal(forecastForCourses([]).length, 15, "next-term forecast always has 15 weeks");
+
+const graduation = buildGraduationTerms(courses, demoCompleted);
+assert.ok(graduation.terms.length > 0, "graduation path includes remaining courses");
+assert.ok(
+  graduation.terms.every((term) => term.courses.length <= 5),
+  "graduation path schedules no more than five courses per term"
+);
+assert.equal(graduation.unplanned.length, 0, "all sample courses can be scheduled");
+const scheduled = new Set(demoCompleted);
+graduation.terms.forEach((term) => {
+  term.courses.forEach((course) => {
+    assert.ok(
+      course.prereqs.every((prerequisite) => scheduled.has(prerequisite)),
+      `${course.code} is scheduled after its prerequisites`
+    );
+  });
+  term.courses.forEach((course) => scheduled.add(course.code));
+});
+
+assert.equal(dailyWeather([]), "sunny", "days without deadlines are sunny");
+assert.equal(
+  dailyWeather([{ weight: 9, type: "assignment" }]),
+  "cloudy",
+  "daily workloads under ten percent are cloudy"
+);
+assert.equal(
+  dailyWeather([{ weight: 10, type: "quiz" }]),
+  "storm",
+  "daily workloads of ten percent are stormy"
+);
+assert.equal(
+  dailyWeather([{ weight: 10 }, { weight: 15 }]),
+  "blizzard",
+  "two large daily items cause a blizzard"
+);
+assert.equal(
+  dailyWeather([{ weight: 35, type: "final" }]),
+  "deepfreeze",
+  "final exams cause a deep freeze"
+);
+assert.equal(
+  normalizeDeadline({ day: "Thursday", time: "2pm" }).time,
+  "2:00 PM",
+  "deadline times are normalized"
+);
+assert.ok(timeOrder("10:00 AM") < timeOrder("2:00 PM"), "daily due items sort by time");
+
+const reportDeadlines = [
+  {
+    course: "CMPUT 201",
+    title: "Midterm",
+    type: "midterm",
+    day: "Thu",
+    time: "2:00 PM",
+    weight: 20,
+  },
+  {
+    course: "MATH 125",
+    title: "Quiz 3",
+    type: "quiz",
+    day: "Tue",
+    time: "10:00 AM",
+    weight: 5,
+  },
+];
+const report = buildLocalForecastReport({
+  week: { week: 6 },
+  weather: "storm",
+  deadlines: reportDeadlines,
+  clubEvents: [],
+});
+const reportWords = report.split(/\s+/).length;
+assert.ok(reportWords >= 80 && reportWords <= 120, "local forecast reports contain 80 to 120 words");
+assert.match(report, /week 6/i, "the report uses the requested forecast week");
+assert.match(
+  report,
+  /Thursday.*CMPUT 201 Midterm, 2:00 PM, worth 20%/i,
+  "the report uses real deadline details"
+);
+assert.match(
+  spokenReportText("CMPUT 201 at 11:59 PM is worth 20%. ☁️"),
+  /Computing 201 at 11 59 PM is worth 20 percent/,
+  "spoken text expands course codes, times, and percentages"
+);
+assert.equal(
+  splitReportSentences("Stormy here. Stay warm!").length,
+  2,
+  "reports split into sentence captions"
+);
+assert.match(
+  buildLocalForecastReport({ week: { week: 3 }, weather: "sunny", deadlines: [] }),
+  /Clear skies all week! Perfect time to get ahead or join a club/,
+  "an empty week gets the short clear-skies report"
+);
+console.log("forecast and club event checks passed");
