@@ -265,6 +265,31 @@ button:disabled {
   animation: forecast-reveal 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+.stormy-talking {
+  animation: stormy-talking 620ms ease-in-out infinite alternate;
+}
+
+.quiz-option-grid {
+  justify-content: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quiz-option-tile {
+    transform: none !important;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  .quiz-interest-grid > :last-child,
+  .quiz-short-grid > :last-child:nth-child(odd) {
+    grid-column-start: 2;
+  }
+}
+
+@keyframes stormy-talking {
+  to { transform: translateY(-3px) scale(1.04); }
+}
+
 .immersive-day-section-wrap {
   position: relative;
   margin: 0;
@@ -432,7 +457,7 @@ button:disabled {
   max-width: 760px;
   height: 150px;
   background: rgba(25, 30, 47, 0.58);
-  filter: blur(14px);
+  filter: none;
 }
 
 .storm-cloud-one {
@@ -490,8 +515,9 @@ button:disabled {
 .weather-fog {
   position: absolute;
   inset: 45% -20% -12%;
-  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.45));
-  filter: blur(30px);
+  background:
+    radial-gradient(ellipse at 25% 80%, rgba(255, 255, 255, 0.3), transparent 62%),
+    radial-gradient(ellipse at 75% 90%, rgba(255, 255, 255, 0.28), transparent 58%);
   animation: immersive-fog 12s ease-in-out infinite alternate;
 }
 
@@ -538,15 +564,14 @@ button:disabled {
   border: 1px solid rgba(17, 20, 13, 0.14);
   border-radius: 32px;
   padding: clamp(1.4rem, 4vw, 3.25rem);
-  background: rgba(251, 251, 246, 0.9);
-  box-shadow: 0 28px 80px -32px rgba(17, 20, 13, 0.46);
-  backdrop-filter: blur(24px);
+  background: rgba(251, 251, 246, 0.97);
+  box-shadow: 0 14px 36px -24px rgba(17, 20, 13, 0.42);
 }
 
 .immersive-day-panel[data-day-weather="storm"] .immersive-day-card,
 .immersive-day-panel[data-day-weather="blizzard"] .immersive-day-card,
 .immersive-day-panel[data-day-weather="deepfreeze"] .immersive-day-card {
-  background: rgba(251, 251, 246, 0.96);
+  background: rgba(251, 251, 246, 0.98);
 }
 
 .immersive-day-nav {

@@ -1,11 +1,36 @@
-import { useMemo } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
 
-export default function WeatherFX({ weather = "sunny", className = "" }) {
+function WeatherFX({ weather = "sunny", className = "" }) {
+  const rootRef = useRef(null);
   const reduce = useReducedMotion();
+  const [sectionVisible, setSectionVisible] = useState(true);
+  const [documentVisible, setDocumentVisible] = useState(
+    () => document.visibilityState === "visible"
+  );
   const isRain = weather === "storm";
   const isSnow = weather === "blizzard" || weather === "deepfreeze";
-  const count = weather === "deepfreeze" ? 26 : 18;
+  const count = weather === "deepfreeze" ? 14 : 16;
+  const effectsRunning = sectionVisible && documentVisible && !reduce;
+
+  useEffect(() => {
+    if (!isRain && !isSnow) return undefined;
+    const root = rootRef.current;
+    if (!root) return undefined;
+    const observer = new IntersectionObserver(
+      ([entry]) => setSectionVisible(entry.isIntersecting),
+      { threshold: 0 }
+    );
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, [isRain, isSnow]);
+
+  useEffect(() => {
+    const updateVisibility = () =>
+      setDocumentVisible(document.visibilityState === "visible");
+    document.addEventListener("visibilitychange", updateVisibility);
+    return () => document.removeEventListener("visibilitychange", updateVisibility);
+  }, []);
 
   const flakes = useMemo(
     () =>
@@ -18,17 +43,21 @@ export default function WeatherFX({ weather = "sunny", className = "" }) {
     [count, isRain]
   );
 
-  if (reduce || (!isRain && !isSnow)) return null;
+  if (!isRain && !isSnow) return null;
 
   return (
-    <div aria-hidden="true" className={`pointer-events-none absolute inset-0 overflow-hidden ${className}`}>
+    <div
+      ref={rootRef}
+      aria-hidden="true"
+      className={`weather-fx ${effectsRunning ? "weather-fx-running" : "weather-fx-paused"} pointer-events-none absolute inset-0 overflow-hidden ${className}`}
+    >
       {flakes.map((flake, index) => (
         <span
           key={index}
           className={
             isRain
-              ? "absolute top-0 rounded-full bg-weather-blizzard/60"
-              : "absolute top-0 select-none text-weather-deepfreeze/80"
+              ? "weather-fx-particle absolute top-0 rounded-full bg-weather-blizzard/60"
+              : "weather-fx-particle absolute top-0 select-none text-weather-deepfreeze/80"
           }
           style={{
             left: flake.left,
@@ -48,3 +77,5 @@ export default function WeatherFX({ weather = "sunny", className = "" }) {
     </div>
   );
 }
+
+export default memo(WeatherFX);

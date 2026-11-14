@@ -462,53 +462,6 @@ export default function DegreeMap() {
         </div>
       </Card>
 
-      <section
-          aria-label="Next term course plan"
-          className="fixed inset-x-0 bottom-[5.5rem] z-30 mx-auto w-full max-w-7xl rounded-none border border-meadow-ink/15 bg-[#fbfbf6]/95 p-3 shadow-[0_18px_50px_-25px_rgba(17,20,13,0.75)] backdrop-blur-xl sm:inset-x-3 sm:w-auto sm:rounded-[24px] md:bottom-24 md:inset-x-6 md:p-4"
-        >
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="text-sm font-extrabold text-meadow-ink">
-                  Next term <span className="text-meadow-sub">· {nextTerm.length}/5 courses</span>
-                </h2>
-                <span className="text-xs font-bold text-meadow-sub sm:hidden">
-                  Tap × to remove
-                </span>
-              </div>
-              <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-                {plannedCourses.length ? plannedCourses.map((course) => (
-                  <span
-                    key={course.code}
-                    className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full bg-meadow-olive/10 px-3 text-xs font-extrabold text-meadow-olive"
-                  >
-                    {course.code}
-                    <button
-                      type="button"
-                      onClick={() => actions.removeFromNextTerm(course.code)}
-                      aria-label={`Remove ${course.code} from next term`}
-                      className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-meadow-olive/15 focus-visible:outline-2 focus-visible:outline-offset-1"
-                    >
-                      <X size={14} aria-hidden="true" />
-                    </button>
-                  </span>
-                )) : (
-                  <span className="inline-flex min-h-11 items-center text-xs font-semibold text-meadow-sub">
-                    Choose up to 5 courses to plan your next term.
-                  </span>
-                )}
-              </div>
-            </div>
-            <Button
-              onClick={() => setPanel({ type: "forecast" })}
-              disabled={!plannedCourses.length}
-              className="w-full shrink-0 sm:w-auto"
-            >
-              Preview next term&apos;s forecast
-            </Button>
-          </div>
-        </section>
-
       <SidePanel
         open={Boolean(panel)}
         onClose={() => setPanel(null)}

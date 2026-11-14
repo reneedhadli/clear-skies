@@ -10,6 +10,11 @@ import { courses } from "../data/courses.js";
 import { demoCompleted } from "../data/demo.js";
 import { getCurrentWeek, getDateForWeekDay, formatDate } from "../config/term.js";
 import { dailyWeather, normalizeDeadline, timeOrder } from "./deadlines.js";
+import {
+  buildLocalForecastReport,
+  spokenReportText,
+  splitReportSentences,
+} from "./forecastReport.js";
 
 const d = (week, weight, type = "assignment", day = "Mon") => ({
   course: "CMPUT 201",
@@ -159,4 +164,51 @@ assert.equal(
 );
 assert.ok(timeOrder("10:00 AM") < timeOrder("2:00 PM"), "daily due items sort by time");
 
+const reportDeadlines = [
+  {
+    course: "CMPUT 201",
+    title: "Midterm",
+    type: "midterm",
+    day: "Thu",
+    time: "2:00 PM",
+    weight: 20,
+  },
+  {
+    course: "MATH 125",
+    title: "Quiz 3",
+    type: "quiz",
+    day: "Tue",
+    time: "10:00 AM",
+    weight: 5,
+  },
+];
+const report = buildLocalForecastReport({
+  week: { week: 6 },
+  weather: "storm",
+  deadlines: reportDeadlines,
+  clubEvents: [],
+});
+const reportWords = report.split(/\s+/).length;
+assert.ok(reportWords >= 80 && reportWords <= 120, "local forecast reports contain 80 to 120 words");
+assert.match(report, /week 6/i, "the report uses the requested forecast week");
+assert.match(
+  report,
+  /Thursday.*CMPUT 201 Midterm, 2:00 PM, worth 20%/i,
+  "the report uses real deadline details"
+);
+assert.match(
+  spokenReportText("CMPUT 201 at 11:59 PM is worth 20%. ☁️"),
+  /Computing 201 at 11 59 PM is worth 20 percent/,
+  "spoken text expands course codes, times, and percentages"
+);
+assert.equal(
+  splitReportSentences("Stormy here. Stay warm!").length,
+  2,
+  "reports split into sentence captions"
+);
+assert.match(
+  buildLocalForecastReport({ week: { week: 3 }, weather: "sunny", deadlines: [] }),
+  /Clear skies all week! Perfect time to get ahead or join a club/,
+  "an empty week gets the short clear-skies report"
+);
 console.log("forecast and club event checks passed");

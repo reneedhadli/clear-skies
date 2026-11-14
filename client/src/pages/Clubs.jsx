@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Loader2, Sparkles } from "lucide-react";
 import ClubQuiz from "../components/ClubQuiz.jsx";
 import ClubSwipe from "../components/ClubSwipe.jsx";
@@ -15,6 +16,7 @@ function initialStep(quizAnswers, clubShortlist) {
 }
 
 export default function Clubs() {
+  const reducedMotion = useReducedMotion();
   const {
     profile,
     deadlines,
@@ -103,7 +105,7 @@ export default function Clubs() {
       requestAnimationFrame(() =>
         document.getElementById("my-clubs")?.scrollIntoView({ behavior: "smooth" })
       );
-    } else {
+    } else if (step === "quiz") {
       window.scrollTo({ top: 0, behavior: "auto" });
     }
   }, [step]);
@@ -124,39 +126,55 @@ export default function Clubs() {
     ]);
   }
 
-  if (step === "loading") {
-    return (
-      <div className="mx-auto max-w-4xl" aria-live="polite" aria-busy="true">
-        <div className="mb-5">
-          <p className="text-sm font-extrabold text-muted">Club Match</p>
-          <h1 className="mt-1 text-3xl font-black tracking-tight sm:text-4xl">
-            Find your people 💚
-          </h1>
-        </div>
-        <section className="flex min-h-[360px] flex-col items-center justify-center rounded-[28px] border border-white/[0.06] bg-surface/90 p-8 text-center shadow-[0_18px_60px_-30px_rgba(17,20,13,0.3)]">
-          <span className="mb-5 flex h-24 w-24 items-center justify-center rounded-full bg-amber/10 text-5xl">
-            🐻
-          </span>
-          <Loader2 className="mb-3 animate-spin text-amber" size={24} aria-hidden="true" />
-          <p className="text-lg font-extrabold">Stormy is finding your people...</p>
-          <Sparkles className="mt-3 text-amber" size={18} aria-hidden="true" />
-        </section>
-      </div>
-    );
-  }
-
-  if (step === "quiz") {
-    return <ClubQuiz initialAnswers={quizAnswers} onComplete={completeQuiz} />;
-  }
-
   return (
-    <ClubSwipe
-      onRetake={retakeQuiz}
-      onShowMore={showMore}
-      onSeeMyClubs={() => {
-        window.location.hash = "my-clubs";
-        document.getElementById("my-clubs")?.scrollIntoView({ behavior: "smooth" });
-      }}
-    />
+    <div className={`mx-auto ${step === "quiz" ? "max-w-6xl" : "max-w-4xl"}`}>
+      <AnimatePresence mode="wait" initial={false}>
+        {step === "loading" ? (
+          <motion.section
+            key="club-loading"
+            initial={{ opacity: 0, y: reducedMotion ? 0 : 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: reducedMotion ? 0 : 8 }}
+            transition={{ duration: reducedMotion ? 0.12 : 0.3, ease: [0.22, 1, 0.36, 1] }}
+            className="flex min-h-[360px] flex-col items-center justify-center text-center"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <Loader2 className="mb-3 animate-spin text-[#4d5d2c]" size={24} aria-hidden="true" />
+            <p className="text-lg font-extrabold text-[#11140d]">
+              Stormy is finding your people...
+            </p>
+            <Sparkles className="mt-3 text-[#9a6b16]" size={18} aria-hidden="true" />
+          </motion.section>
+        ) : step === "quiz" ? (
+          <motion.div
+            key="club-quiz"
+            initial={{ opacity: 0, y: reducedMotion ? 0 : 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: reducedMotion ? 0 : 8 }}
+            transition={{ duration: reducedMotion ? 0.12 : 0.3, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <ClubQuiz initialAnswers={quizAnswers} onComplete={completeQuiz} />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="club-swipe"
+            initial={{ opacity: 0, y: reducedMotion ? 0 : 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: reducedMotion ? 0 : 8 }}
+            transition={{ duration: reducedMotion ? 0.12 : 0.3, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <ClubSwipe
+              onRetake={retakeQuiz}
+              onShowMore={showMore}
+              onSeeMyClubs={() => {
+                window.location.hash = "my-clubs";
+                document.getElementById("my-clubs")?.scrollIntoView({ behavior: "smooth" });
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

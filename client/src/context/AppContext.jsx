@@ -48,16 +48,18 @@ function readStoredState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return initialState;
     const parsed = JSON.parse(raw);
+    const stored = { ...parsed };
+    delete stored.weatherMusic;
     const validClubIds = new Set(clubs.map((club) => club.id));
-    const likedClubIds = (parsed.likedClubIds || []).filter((id) => validClubIds.has(id));
-    const storedProfile = parsed.profile || {};
+    const likedClubIds = (stored.likedClubIds || []).filter((id) => validClubIds.has(id));
+    const storedProfile = stored.profile || {};
     const validClubIdSet = new Set(clubs.map((club) => club.id));
     const {
       completedCourses: legacyCompleted = [],
       nextTerm: legacyNextTerm = [],
       ...storedState
-    } = parsed;
-    const demoLoaded = Boolean(parsed.demoLoaded);
+    } = stored;
+    const demoLoaded = Boolean(stored.demoLoaded);
     return {
       ...initialState,
       ...storedState,
@@ -82,22 +84,22 @@ function readStoredState() {
             : [],
       },
       likedClubIds,
-      clubShortlist: Array.isArray(parsed.clubShortlist)
-        ? parsed.clubShortlist.filter((item) => validClubIdSet.has(item?.id))
+      clubShortlist: Array.isArray(stored.clubShortlist)
+        ? stored.clubShortlist.filter((item) => validClubIdSet.has(item?.id))
         : [],
-      shortlistSeenIds: Array.isArray(parsed.shortlistSeenIds)
-        ? parsed.shortlistSeenIds.filter((id) => validClubIdSet.has(id))
+      shortlistSeenIds: Array.isArray(stored.shortlistSeenIds)
+        ? stored.shortlistSeenIds.filter((id) => validClubIdSet.has(id))
         : [],
-      shortlistExcludedIds: Array.isArray(parsed.shortlistExcludedIds)
-        ? parsed.shortlistExcludedIds.filter((id) => validClubIdSet.has(id))
+      shortlistExcludedIds: Array.isArray(stored.shortlistExcludedIds)
+        ? stored.shortlistExcludedIds.filter((id) => validClubIdSet.has(id))
         : [],
-      chatMessages: Array.isArray(parsed.chatMessages) ? parsed.chatMessages : [],
+      chatMessages: Array.isArray(stored.chatMessages) ? stored.chatMessages : [],
       studySessions: Array.isArray(parsed.studySessions)
         ? parsed.studySessions.filter((item) => item && item.id && item.course && item.day)
         : [],
       agentUndo: parsed.agentUndo && parsed.agentUndo.snapshot ? parsed.agentUndo : null,
       clubMatches: Object.fromEntries(
-        Object.entries(parsed.clubMatches || {}).filter(([id]) => validClubIds.has(id))
+        Object.entries(stored.clubMatches || {}).filter(([id]) => validClubIds.has(id))
       ),
     };
   } catch {
@@ -317,7 +319,7 @@ export function AppProvider({ children }) {
         setState((prev) => ({ ...prev, chatMessages: [] }));
       },
       loadDemo() {
-        setState({
+        setState((prev) => ({
           ...initialState,
           profile: {
             ...demoProfile,
@@ -336,7 +338,7 @@ export function AppProvider({ children }) {
           shortlistSeenIds: [],
           shortlistExcludedIds: [],
           demoLoaded: true,
-        });
+        }));
       },
       resetApp() {
         setState(initialState);

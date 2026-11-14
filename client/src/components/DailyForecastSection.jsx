@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, CheckCircle2 } from "lucide-react";
 import { useReducedMotion } from "framer-motion";
 import WeatherIcon from "./WeatherIcon.jsx";
@@ -80,7 +80,7 @@ function ImmersiveBackground({ weather, animate }) {
 
   function layer(weatherKey, current) {
     const count =
-      weatherKey === "storm" ? 48 : weatherKey === "blizzard" ? 42 : weatherKey === "deepfreeze" ? 26 : 0;
+      weatherKey === "storm" ? 24 : weatherKey === "blizzard" ? 20 : weatherKey === "deepfreeze" ? 14 : 0;
     const particle = (index) => ({
       left: `${(index * 47 + 11) % 100}%`,
       delay: `${((index * 0.73) % 9).toFixed(2)}s`,
@@ -149,10 +149,150 @@ function ImmersiveBackground({ weather, animate }) {
   );
 }
 
-export default function DailyForecastSection({ week, clubEvents, onBackToWeek }) {
+const DailyForecastPanel = memo(function DailyForecastPanel({
+  day,
+  weekNumber,
+  index,
+  panelRef,
+  onBackToWeek,
+}) {
+  return (
+    <article
+      ref={panelRef}
+      data-day-index={index}
+      data-day-weather={day.weather}
+      className="immersive-day-panel"
+      aria-labelledby={`immersive-day-${weekNumber}-${day.short}`}
+    >
+      <div className="immersive-day-card">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-meadow-sub">
+              Week {weekNumber}, day by day · {day.meta.label}
+            </p>
+            <h2
+              id={`immersive-day-${weekNumber}-${day.short}`}
+              className="mt-2 text-4xl font-black tracking-tight text-meadow-ink sm:text-6xl"
+            >
+              {day.long}
+            </h2>
+            <p className="mt-1 text-lg font-semibold text-meadow-sub">
+              {formatDate(day.date)}
+            </p>
+          </div>
+          {day.isToday && (
+            <span className="rounded-full bg-[#b8862e]/15 px-3 py-1.5 text-xs font-extrabold text-[#7d5a1b]">
+              Today
+            </span>
+          )}
+        </div>
+
+        <div className="mt-7 flex flex-wrap items-center gap-4">
+          <WeatherIcon weather={day.weather} size="lg" />
+          <p className="text-lg font-bold leading-relaxed text-meadow-ink">
+            {STORMY_LINES[day.weather]}
+          </p>
+        </div>
+
+        <div className="mt-7 border-t border-meadow-ink/10 pt-5">
+          <h3 className="text-sm font-extrabold text-meadow-ink">What&apos;s due</h3>
+          {day.due.length ? (
+            <ul className="mt-3 space-y-2">
+              {day.due.map((item, dueIndex) => (
+                <li
+                  key={`${item.course}-${item.title}-${dueIndex}`}
+                  className="rounded-2xl bg-white/70 px-4 py-3"
+                >
+                  <p className="text-sm font-extrabold text-meadow-ink">
+                    {item.course} <span className="font-semibold">· {item.title}</span>
+                  </p>
+                  <p className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold text-meadow-sub">
+                    <span>{item.time || "Time TBA"}</span>
+                    <span aria-hidden="true">·</span>
+                    <span>{item.weight}%</span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 capitalize ${
+                        TYPE_TONES[item.type] || TYPE_TONES.lab
+                      }`}
+                    >
+                      {item.type}
+                    </span>
+                  </p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3 flex items-center gap-2 text-sm font-semibold text-[#315637]">
+              <CheckCircle2 size={16} aria-hidden="true" />
+              Nothing due. Clear skies ☀️
+            </p>
+          )}
+        </div>
+
+        {day.study?.length > 0 && (
+          <div className="mt-5 rounded-2xl border border-meadow-ink/10 bg-white/55 px-4 py-3">
+            <h3 className="text-xs font-extrabold text-meadow-ink">Study time · {day.studyHours}h</h3>
+            <ul className="mt-2 space-y-1.5">
+              {day.study.map((item) => (
+                <li key={item.id} className="text-sm font-semibold text-meadow-ink">
+                  {item.course} · {item.hours}h
+                  {item.title ? <span className="font-medium text-meadow-sub"> · {item.title}</span> : null}
+                  {item.by === "stormy" && (
+                    <span className="ml-2 text-[10px] font-extrabold uppercase text-[#3d6237]">Stormy</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {day.events.length > 0 && (
+          <div className="mt-5 rounded-2xl border border-[#4d7a45]/15 bg-[#4d7a45]/[0.07] px-4 py-3">
+            <h3 className="text-xs font-extrabold text-[#315637]">Club plans</h3>
+            <ul className="mt-2 space-y-1.5">
+              {day.events.map((event) => (
+                <li key={event.clubId} className="text-sm font-semibold text-[#344f2e]">
+                  <span aria-hidden="true">{event.club.emoji} </span>
+                  {event.club.name} · {event.title}
+                  {event.time ? ` · ${event.time}` : ""}
+                  {event.isDemoEvent && (
+                    <span className="ml-1 text-[10px] font-bold uppercase">Demo</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {index === DAYS.length - 1 && (
+          <button
+            type="button"
+            onClick={onBackToWeek}
+            className="mt-7 inline-flex min-h-11 items-center gap-2 rounded-full border border-meadow-ink/20 bg-white/75 px-5 text-sm font-extrabold text-meadow-ink transition hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-meadow-olive"
+          >
+            <ArrowUp size={16} aria-hidden="true" />
+            Back to week overview
+          </button>
+        )}
+      </div>
+    </article>
+  );
+});
+
+function DailyForecastSection({ week, clubEvents, onBackToWeek }) {
   const reducedMotion = useReducedMotion();
   const scrollRef = useRef(null);
   const dayRefs = useRef([]);
+  const dayRefCallbacks = useMemo(
+    () =>
+      DAYS.map(
+        (_, index) =>
+          (element) => {
+            dayRefs.current[index] = element;
+          }
+      ),
+    []
+  );
   const [activeDay, setActiveDay] = useState(0);
   const [sectionVisible, setSectionVisible] = useState(false);
   const [documentVisible, setDocumentVisible] = useState(
@@ -265,129 +405,17 @@ export default function DailyForecastSection({ week, clubEvents, onBackToWeek })
       </nav>
 
       {dayForecasts.map((day, index) => (
-        <article
+        <DailyForecastPanel
           key={`${week.week}-${day.short}`}
-          ref={(element) => {
-            dayRefs.current[index] = element;
-          }}
-          data-day-index={index}
-          data-day-weather={day.weather}
-          className="immersive-day-panel"
-          aria-labelledby={`immersive-day-${week.week}-${day.short}`}
-        >
-          <div className="immersive-day-card">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-meadow-sub">
-                  Week {week.week}, day by day · {day.meta.label}
-                </p>
-                <h2
-                  id={`immersive-day-${week.week}-${day.short}`}
-                  className="mt-2 text-4xl font-black tracking-tight text-meadow-ink sm:text-6xl"
-                >
-                  {day.long}
-                </h2>
-                <p className="mt-1 text-lg font-semibold text-meadow-sub">
-                  {formatDate(day.date)}
-                </p>
-              </div>
-              {day.isToday && (
-                <span className="rounded-full bg-[#b8862e]/15 px-3 py-1.5 text-xs font-extrabold text-[#7d5a1b]">
-                  Today
-                </span>
-              )}
-            </div>
-
-            <div className="mt-7 flex flex-wrap items-center gap-4">
-              <WeatherIcon weather={day.weather} size="lg" />
-              <p className="text-lg font-bold leading-relaxed text-meadow-ink">
-                {STORMY_LINES[day.weather]}
-              </p>
-            </div>
-
-            <div className="mt-7 border-t border-meadow-ink/10 pt-5">
-              <h3 className="text-sm font-extrabold text-meadow-ink">What&apos;s due</h3>
-              {day.due.length ? (
-                <ul className="mt-3 space-y-2">
-                  {day.due.map((item, dueIndex) => (
-                    <li
-                      key={`${item.course}-${item.title}-${dueIndex}`}
-                      className="rounded-2xl bg-white/70 px-4 py-3"
-                    >
-                      <p className="text-sm font-extrabold text-meadow-ink">
-                        {item.course} <span className="font-semibold">· {item.title}</span>
-                      </p>
-                      <p className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold text-meadow-sub">
-                        <span>{item.time || "Time TBA"}</span>
-                        <span aria-hidden="true">·</span>
-                        <span>{item.weight}%</span>
-                        <span
-                          className={`rounded-full px-2 py-0.5 capitalize ${
-                            TYPE_TONES[item.type] || TYPE_TONES.lab
-                          }`}
-                        >
-                          {item.type}
-                        </span>
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-3 flex items-center gap-2 text-sm font-semibold text-[#315637]">
-                  <CheckCircle2 size={16} aria-hidden="true" />
-                  Nothing due. Clear skies ☀️
-                </p>
-              )}
-            </div>
-
-            {day.study.length > 0 && (
-              <div className="mt-5 rounded-2xl border border-meadow-ink/10 bg-white/55 px-4 py-3">
-                <h3 className="text-xs font-extrabold text-meadow-ink">Study time · {day.studyHours}h</h3>
-                <ul className="mt-2 space-y-1.5">
-                  {day.study.map((item) => (
-                    <li key={item.id} className="text-sm font-semibold text-meadow-ink">
-                      {item.course} · {item.hours}h
-                      {item.title ? <span className="font-medium text-meadow-sub"> · {item.title}</span> : null}
-                      {item.by === "stormy" && (
-                        <span className="ml-2 text-[10px] font-extrabold uppercase text-[#3d6237]">Stormy</span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {day.events.length > 0 && (
-              <div className="mt-5 rounded-2xl border border-[#4d7a45]/15 bg-[#4d7a45]/[0.07] px-4 py-3">
-                <h3 className="text-xs font-extrabold text-[#315637]">Club plans</h3>
-                <ul className="mt-2 space-y-1.5">
-                  {day.events.map((event) => (
-                    <li key={event.clubId} className="text-sm font-semibold text-[#344f2e]">
-                      <span aria-hidden="true">{event.club.emoji} </span>
-                      {event.club.name} · {event.title}
-                      {event.time ? ` · ${event.time}` : ""}
-                      {event.isDemoEvent && (
-                        <span className="ml-1 text-[10px] font-bold uppercase">Demo</span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {index === dayForecasts.length - 1 && (
-              <button
-                type="button"
-                onClick={onBackToWeek}
-                className="mt-7 inline-flex min-h-11 items-center gap-2 rounded-full border border-meadow-ink/20 bg-white/75 px-5 text-sm font-extrabold text-meadow-ink transition hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-meadow-olive"
-              >
-                <ArrowUp size={16} aria-hidden="true" />
-                Back to week overview
-              </button>
-            )}
-          </div>
-        </article>
+          day={day}
+          weekNumber={week.week}
+          index={index}
+          panelRef={dayRefCallbacks[index]}
+          onBackToWeek={onBackToWeek}
+        />
       ))}
     </section>
   );
 }
+
+export default memo(DailyForecastSection);

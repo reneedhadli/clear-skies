@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
-import { ArrowDown, CheckCircle2, Sparkles } from "lucide-react";
+import { ArrowDown, CheckCircle2, Radio, Sparkles } from "lucide-react";
 import MeadowLandscape from "../components/MeadowLandscape.jsx";
 import SyllabusModal from "../components/SyllabusModal.jsx";
 import StormPlanPanel from "../components/StormPlanPanel.jsx";
 import DailyForecastSection from "../components/DailyForecastSection.jsx";
+import ForecastReportPlayer from "../components/ForecastReportPlayer.jsx";
 import WeatherFX from "../components/WeatherFX.jsx";
 import WeatherIcon from "../components/WeatherIcon.jsx";
 import { useApp } from "../context/AppContext.jsx";
@@ -14,6 +15,8 @@ import { normalizeDeadline } from "../lib/deadlines.js";
 import { clubEventsForForecast } from "../lib/clubs.js";
 import { clubs } from "../data/clubs.js";
 import { weatherMeta } from "../lib/weather.js";
+import { generateForecastReport } from "../lib/forecastReport.js";
+import { stopForecastAudio } from "../lib/forecastAudio.js";
 
 const WEATHER_COPY = {
   sunny: "Clear skies. A good week to get ahead, or actually rest.",
@@ -109,7 +112,7 @@ function dayRank(day) {
   return index === -1 ? 99 : index;
 }
 
-export default function Forecast() {
+export default function Forecast({ onSelectedWeekChange }) {
   const {
     profile,
     syllabi,
@@ -143,6 +146,9 @@ export default function Forecast() {
   const [planOpen, setPlanOpen] = useState(false);
   const [animateReveal, setAnimateReveal] = useState(false);
   const [notice, setNotice] = useState("");
+  const [forecastReport, setForecastReport] = useState("");
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportAutoplayToken, setReportAutoplayToken] = useState(0);
   const stripRef = useRef(null);
   const forecastRef = useRef(null);
   const immersiveRef = useRef(null);
@@ -151,6 +157,10 @@ export default function Forecast() {
   const selected = forecast.find((week) => week.week === selectedWeek) || forecast[0];
   const selectedClubEvents = clubEvents.filter((event) => event.week === selected.week);
   const meta = weatherMeta(selected.weather);
+
+  useEffect(() => {
+    onSelectedWeekChange?.(selected.week);
+  }, [onSelectedWeekChange, selected.week]);
 
   useEffect(() => {
     document.title = `${profile.program} — Clear Skies`;
@@ -183,6 +193,13 @@ export default function Forecast() {
   }, [selectedWeek, hasForecast]);
 
   useEffect(() => {
+    stopForecastAudio();
+    setForecastReport("");
+    setReportAutoplayToken(0);
+    setReportLoading(false);
+  }, [selected.week]);
+
+  useEffect(() => {
     if (!animateReveal || reduceMotion) return;
     const timer = window.setTimeout(() => setAnimateReveal(false), 850);
     return () => window.clearTimeout(timer);
@@ -204,6 +221,24 @@ export default function Forecast() {
   function savePlan(plan) {
     actions.savePlan(selected.week, plan);
     setNotice(`Plan saved for week ${selected.week}. One small step at a time.`);
+  }
+
+  async function playForecastReport() {
+    if (reportLoading) return;
+    stopForecastAudio();
+    if (!forecastReport) {
+      setReportLoading(true);
+      const report = await generateForecastReport({
+        week: selected,
+        weather: selected.weather,
+        deadlines: selected.due,
+        clubEvents: selectedClubEvents,
+        studentName: profile.name,
+      });
+      setForecastReport(report);
+      setReportLoading(false);
+    }
+    setReportAutoplayToken((token) => token + 1);
   }
 
   function handleWeekKeyDown(event, week) {
@@ -238,13 +273,24 @@ export default function Forecast() {
         <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-1 items-center justify-center px-4 py-12 text-center sm:px-6">
           <div className="max-w-3xl">
             <h1 className="animate-meadow-rise text-[clamp(3.5rem,9vw,7.4rem)] font-semibold leading-[0.9] tracking-[-0.06em] text-meadow-ink">
-              Hey{" "}
-              <span className="font-meadow-serif font-normal italic tracking-[-0.035em]">
-                {profile.name || "there"}
-              </span>{" "}
-              <span className="inline-block text-[0.62em] align-[0.12em]" aria-hidden="true">
-                👋
-              </span>
+              {profile.name ? (
+                <>
+                  Hey{" "}
+                  <span className="font-meadow-serif font-normal italic tracking-[-0.035em]">
+                    {profile.name}
+                  </span>{" "}
+                  <span className="inline-block text-[0.62em] align-[0.12em]" aria-hidden="true">
+                    👋
+                  </span>
+                </>
+              ) : (
+                <>
+                  Welcome to{" "}
+                  <span className="font-meadow-serif font-normal italic tracking-[-0.035em]">
+                    Clear Skies
+                  </span>
+                </>
+              )}
             </h1>
             <p className="mx-auto mt-6 max-w-xl animate-meadow-rise text-base font-medium leading-relaxed text-meadow-sub sm:text-lg">
               Add your syllabus to see your semester forecast.
@@ -465,10 +511,28 @@ export default function Forecast() {
                         ? "Stormy can turn this into a Mon–Thu checklist."
                         : "A calm week. Make a little room for yourself."}
                     </p>
-                    <MeadowButton onClick={() => setPlanOpen(true)} className="w-full sm:w-auto">
-                      <Sparkles size={17} aria-hidden="true" />
-                      Make my plan
-                    </MeadowButton>
+                    <div className="flex flex-wrap gap-3">
+                      <MeadowButton onClick={() => setPlanOpen(true)} className="w-full sm:w-auto">
+                        <Sparkles size={17} aria-hidden="true" />
+                        Make my plan
+                      </MeadowButton>
+                      <button
+                        type="button"
+                        onClick={playForecastReport}
+                        disabled={reportLoading}
+                        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-meadow-ink/20 bg-white/70 px-6 text-sm font-extrabold text-meadow-ink transition hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-meadow-olive disabled:cursor-wait disabled:opacity-70"
+                      >
+                        <Radio size={17} aria-hidden="true" />
+                        {reportLoading ? "Preparing Stormy's forecast..." : "Play Stormy's forecast"}
+                      </button>
+                    </div>
+                    {forecastReport && (
+                      <ForecastReportPlayer
+                        report={forecastReport}
+                        week={selected.week}
+                        autoPlayToken={reportAutoplayToken}
+                      />
+                    )}
                   </div>
                 </div>
               </article>
