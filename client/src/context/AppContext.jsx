@@ -9,6 +9,7 @@ import {
 } from "../data/demo.js";
 import { clubs } from "../data/clubs.js";
 import { getCurrentWeek, TERM_NAME } from "../config/term.js";
+import { normalizeDeadline } from "../lib/deadlines.js";
 
 const STORAGE_KEY = "clear-skies-v1";
 
@@ -26,6 +27,9 @@ const initialState = {
   syllabi: [],
   deadlines: [],
   quizAnswers: null,
+  clubShortlist: [],
+  shortlistSeenIds: [],
+  shortlistExcludedIds: [],
   likedClubIds: [],
   clubMatches: {},
   joinedClubIds: [],
@@ -45,6 +49,7 @@ function readStoredState() {
     const validClubIds = new Set(clubs.map((club) => club.id));
     const likedClubIds = (parsed.likedClubIds || []).filter((id) => validClubIds.has(id));
     const storedProfile = parsed.profile || {};
+    const validClubIdSet = new Set(clubs.map((club) => club.id));
     const {
       completedCourses: legacyCompleted = [],
       nextTerm: legacyNextTerm = [],
@@ -75,6 +80,15 @@ function readStoredState() {
             : [],
       },
       likedClubIds,
+      clubShortlist: Array.isArray(parsed.clubShortlist)
+        ? parsed.clubShortlist.filter((item) => validClubIdSet.has(item?.id))
+        : [],
+      shortlistSeenIds: Array.isArray(parsed.shortlistSeenIds)
+        ? parsed.shortlistSeenIds.filter((id) => validClubIdSet.has(id))
+        : [],
+      shortlistExcludedIds: Array.isArray(parsed.shortlistExcludedIds)
+        ? parsed.shortlistExcludedIds.filter((id) => validClubIdSet.has(id))
+        : [],
       chatMessages: Array.isArray(parsed.chatMessages) ? parsed.chatMessages : [],
       clubMatches: Object.fromEntries(
         Object.entries(parsed.clubMatches || {}).filter(([id]) => validClubIds.has(id))
@@ -105,7 +119,7 @@ export function AppProvider({ children }) {
       addDeadlines(deadlines, syllabusMeta = []) {
         setState((prev) => {
           const byKey = new Map(prev.deadlines.map((item) => [deadlineKey(item), item]));
-          deadlines.forEach((item) => byKey.set(deadlineKey(item), item));
+          deadlines.map(normalizeDeadline).forEach((item) => byKey.set(deadlineKey(item), item));
           const syllabiByCourse = new Map(prev.syllabi.map((item) => [item.course, item]));
           syllabusMeta.forEach((item) => {
             if (item?.course) syllabiByCourse.set(item.course, item);
@@ -123,7 +137,49 @@ export function AppProvider({ children }) {
         });
       },
       setQuizAnswers(answers) {
-        setState((prev) => ({ ...prev, quizAnswers: answers }));
+        setState((prev) => ({
+          ...prev,
+          quizAnswers: answers,
+          clubShortlist: [],
+          shortlistSeenIds: [],
+          shortlistExcludedIds: [],
+        }));
+      },
+      saveClubShortlist(shortlist) {
+        setState((prev) => {
+          const currentById = new Map(prev.clubShortlist.map((club) => [club.id, club]));
+          const addedIds = [];
+          shortlist.forEach((club) => {
+            if (!clubs.some((item) => item.id === club.id)) return;
+            if (!currentById.has(club.id)) addedIds.push(club.id);
+            currentById.set(club.id, club);
+          });
+          return {
+            ...prev,
+            clubShortlist: [...currentById.values()],
+            shortlistExcludedIds: [...new Set([...prev.shortlistExcludedIds, ...addedIds])],
+          };
+        });
+      },
+      markClubSeen(id) {
+        setState((prev) => ({
+          ...prev,
+          shortlistSeenIds: prev.shortlistSeenIds.includes(id)
+            ? prev.shortlistSeenIds
+            : [...prev.shortlistSeenIds, id],
+          shortlistExcludedIds: prev.shortlistExcludedIds.includes(id)
+            ? prev.shortlistExcludedIds
+            : [...prev.shortlistExcludedIds, id],
+        }));
+      },
+      clearClubRecommendations() {
+        setState((prev) => ({
+          ...prev,
+          quizAnswers: null,
+          clubShortlist: [],
+          shortlistSeenIds: [],
+          shortlistExcludedIds: [],
+        }));
       },
       toggleCompleted(code) {
         setState((prev) => {
@@ -239,6 +295,9 @@ export function AppProvider({ children }) {
           likedClubIds: [],
           clubMatches: {},
           clubCopies: demoClubCopies,
+          clubShortlist: [],
+          shortlistSeenIds: [],
+          shortlistExcludedIds: [],
           demoLoaded: true,
         });
       },

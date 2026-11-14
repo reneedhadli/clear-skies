@@ -1,33 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
-import {
-  ArrowDown,
-  ArrowUpRight,
-  CheckCircle2,
-  CloudSun,
-  Plus,
-  Sparkles,
-  Sun,
-} from "lucide-react";
+import { useReducedMotion } from "framer-motion";
+import { ArrowDown, CheckCircle2, Sparkles } from "lucide-react";
 import MeadowLandscape from "../components/MeadowLandscape.jsx";
-import WeatherFX from "../components/WeatherFX.jsx";
 import SyllabusModal from "../components/SyllabusModal.jsx";
 import StormPlanPanel from "../components/StormPlanPanel.jsx";
+import DailyForecastSection from "../components/DailyForecastSection.jsx";
+import WeatherFX from "../components/WeatherFX.jsx";
+import WeatherIcon from "../components/WeatherIcon.jsx";
 import { useApp } from "../context/AppContext.jsx";
-import { buildForecast } from "../lib/forecast.js";
 import { TOTAL_WEEKS } from "../config/term.js";
+import { buildForecast } from "../lib/forecast.js";
+import { normalizeDeadline } from "../lib/deadlines.js";
 import { clubEventsForForecast } from "../lib/clubs.js";
 import { clubs } from "../data/clubs.js";
 import { weatherMeta } from "../lib/weather.js";
-
-const TYPE_TONES = {
-  midterm: "storm",
-  final: "blue",
-  quiz: "amber",
-  assignment: "sage",
-  project: "sage",
-  lab: "default",
-};
 
 const WEATHER_COPY = {
   sunny: "Clear skies. A good week to get ahead, or actually rest.",
@@ -45,68 +31,20 @@ const STRESS_COLORS = {
   deepfreeze: "#4b7f9c",
 };
 
-const CHIP_TONES = {
-  default: "bg-meadow-ink/[0.06] text-meadow-sub",
-  olive: "bg-meadow-olive/10 text-meadow-olive",
-  amber: "bg-[#b8862e]/14 text-[#7d5a1b]",
-  sage: "bg-[#4d7a45]/14 text-[#3d6237]",
-  storm: "bg-[#6b5bd6]/14 text-[#5946bf]",
-  blue: "bg-[#3d7fa8]/12 text-[#2f6f97]",
+const TYPE_TONES = {
+  midterm: "bg-[#6b5bd6]/14 text-[#5946bf]",
+  final: "bg-[#3d7fa8]/12 text-[#2f6f97]",
+  quiz: "bg-[#b8862e]/14 text-[#7d5a1b]",
+  assignment: "bg-[#4d7a45]/14 text-[#3d6237]",
+  project: "bg-[#4d7a45]/14 text-[#3d6237]",
+  lab: "bg-meadow-ink/[0.06] text-meadow-sub",
 };
 
-const FOOTER_LINKS = [
-  {
-    title: "Forecast",
-    links: [
-      { label: "This week", to: "/" },
-      { label: "Degree Map", to: "/degree" },
-      { label: "Chat with Stormy", action: "chat" },
-    ],
-  },
-  {
-    title: "Clubs",
-    links: [
-      { label: "Club Match", to: "/clubs" },
-      { label: "My clubs", to: "/clubs#my-clubs" },
-    ],
-  },
-  {
-    title: "The demo",
-    links: [
-      { label: "No account needed" },
-      { label: "Works offline" },
-      { label: "Built for HackED Beta" },
-    ],
-  },
-];
-
-function SunMark({ className = "" }) {
-  return (
-    <svg
-      viewBox="0 0 32 32"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      aria-hidden="true"
-      className={className}
-    >
-      <circle cx="16" cy="16" r="6.2" />
-      <path d="M16 2.4v4.6M16 25v4.6M2.4 16H7M25 16h4.6M6.4 6.4l3.2 3.2M22.4 22.4l3.2 3.2M25.6 6.4l-3.2 3.2M9.6 22.4l-3.2 3.2" />
-      <circle cx="16" cy="16" r="1.8" />
-    </svg>
-  );
-}
-
-function MeadowButton({ variant = "solid", className = "", children, ...props }) {
-  const styles =
-    variant === "outline"
-      ? "border border-meadow-ink/20 bg-white/45 text-meadow-ink hover:border-meadow-ink/35 hover:bg-white/70"
-      : "bg-meadow-ground text-[#f4f4ef] shadow-[0_14px_34px_-18px_rgba(17,20,13,0.85)] hover:bg-[#34431f]";
+function MeadowButton({ children, className = "", ...props }) {
   return (
     <button
       type="button"
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-sm font-extrabold tracking-tight transition-all duration-200 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 motion-reduce:transform-none ${styles} ${className}`}
+      className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-meadow-ground px-7 text-base font-extrabold tracking-tight text-[#f4f4ef] shadow-[0_14px_34px_-18px_rgba(17,20,13,0.85)] transition hover:bg-[#34431f] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-meadow-olive motion-reduce:transform-none ${className}`}
       {...props}
     >
       {children}
@@ -114,23 +52,13 @@ function MeadowButton({ variant = "solid", className = "", children, ...props })
   );
 }
 
-function MeadowChip({ tone = "default", className = "", children }) {
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${CHIP_TONES[tone] || CHIP_TONES.default} ${className}`}
-    >
-      {children}
-    </span>
-  );
-}
-
-function StressBar({ value, weather, label }) {
+function StressBar({ value, weather }) {
   const clamped = Math.max(0, Math.min(100, value));
   return (
     <div
       className="h-2.5 w-full overflow-hidden rounded-full bg-meadow-ink/10"
       role="progressbar"
-      aria-label={label}
+      aria-label={`Feels like ${clamped}% stressed`}
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={clamped}
@@ -147,10 +75,8 @@ function ClubPlans({ events }) {
   if (!events.length) return null;
 
   return (
-    <section className="mt-4 rounded-2xl border border-[#4d7a45]/15 bg-[#4d7a45]/[0.06] px-4 py-3">
-      <h3 className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#3d6237]">
-        Club plans
-      </h3>
+    <section className="mt-5 rounded-2xl border border-[#4d7a45]/15 bg-[#4d7a45]/[0.06] px-4 py-3">
+      <h3 className="text-xs font-extrabold text-[#3d6237]">Club plans</h3>
       <ul className="mt-1 divide-y divide-[#4d7a45]/10">
         {events.map((event) => (
           <li key={event.clubId} className="py-2">
@@ -177,9 +103,19 @@ function ClubPlans({ events }) {
   );
 }
 
-export default function Forecast({ onOpenChat }) {
-  const { profile, syllabi, deadlines, plans, likedClubIds, actions } = useApp();
-  const forecast = useMemo(() => buildForecast(deadlines), [deadlines]);
+export default function Forecast() {
+  const {
+    profile,
+    syllabi,
+    deadlines,
+    plans,
+    likedClubIds,
+    actions,
+  } = useApp();
+  const normalizedDeadlines = useMemo(() => deadlines.map(normalizeDeadline), [deadlines]);
+  const forecast = useMemo(() => buildForecast(normalizedDeadlines), [normalizedDeadlines]);
+  const hasForecast = normalizedDeadlines.length > 0;
+  const reduceMotion = useReducedMotion();
   const clubEvents = useMemo(
     () => clubEventsForForecast(likedClubIds, clubs, forecast, profile.currentWeek),
     [likedClubIds, forecast, profile.currentWeek]
@@ -195,21 +131,23 @@ export default function Forecast({ onOpenChat }) {
   const [selectedWeek, setSelectedWeek] = useState(profile.currentWeek);
   const [modalOpen, setModalOpen] = useState(false);
   const [planOpen, setPlanOpen] = useState(false);
+  const [animateReveal, setAnimateReveal] = useState(false);
   const [notice, setNotice] = useState("");
   const stripRef = useRef(null);
+  const forecastRef = useRef(null);
+  const immersiveRef = useRef(null);
+  const shouldRevealRef = useRef(false);
 
   const selected = forecast.find((week) => week.week === selectedWeek) || forecast[0];
   const selectedClubEvents = clubEvents.filter((event) => event.week === selected.week);
   const meta = weatherMeta(selected.weather);
-  const hasDeadlines = deadlines.length > 0;
-  const hasClubEvents = clubEvents.length > 0;
 
   useEffect(() => {
-    document.title = `${profile.year} · ${profile.program} — Clear Skies`;
+    document.title = `${profile.program} — Clear Skies`;
     return () => {
       document.title = "Clear Skies";
     };
-  }, [profile.year, profile.program]);
+  }, [profile.program]);
 
   useEffect(() => {
     if (!notice) return;
@@ -218,16 +156,35 @@ export default function Forecast({ onOpenChat }) {
   }, [notice]);
 
   useEffect(() => {
-    const active = stripRef.current?.querySelector('[data-active="true"]');
-    active?.scrollIntoView({ block: "nearest", inline: "center" });
-  }, []);
+    if (!hasForecast || !shouldRevealRef.current) return;
+    shouldRevealRef.current = false;
+    setAnimateReveal(!reduceMotion);
+    requestAnimationFrame(() => {
+      forecastRef.current?.scrollIntoView({
+        behavior: reduceMotion ? "auto" : "smooth",
+        block: "start",
+      });
+    });
+  }, [hasForecast, reduceMotion]);
 
-  function selectWeek(week) {
-    setSelectedWeek(week);
-    setPlanOpen(false);
+  useEffect(() => {
+    const active = stripRef.current?.querySelector(`[data-week="${selectedWeek}"]`);
+    active?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [selectedWeek, hasForecast]);
+
+  useEffect(() => {
+    if (!animateReveal || reduceMotion) return;
+    const timer = window.setTimeout(() => setAnimateReveal(false), 850);
+    return () => window.clearTimeout(timer);
+  }, [animateReveal, reduceMotion]);
+
+  function showDemo() {
+    shouldRevealRef.current = true;
+    actions.loadDemo();
   }
 
   function handleAdded(added) {
+    shouldRevealRef.current = true;
     setSelectedWeek(profile.currentWeek);
     setNotice(
       `Added ${added.length} deadlines. Week ${profile.currentWeek} just got clearer.`
@@ -239,178 +196,183 @@ export default function Forecast({ onOpenChat }) {
     setNotice(`Plan saved for week ${selected.week}. One small step at a time.`);
   }
 
+  function handleWeekKeyDown(event, week) {
+    if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+    event.preventDefault();
+    const nextWeek =
+      event.key === "ArrowRight"
+        ? Math.min(TOTAL_WEEKS, week + 1)
+        : Math.max(1, week - 1);
+    setSelectedWeek(nextWeek);
+    stripRef.current?.querySelector(`[data-week="${nextWeek}"]`)?.focus();
+  }
+
+  function scrollToDayByDay() {
+    immersiveRef.current?.scrollIntoView({
+      behavior: reduceMotion ? "auto" : "smooth",
+      block: "start",
+    });
+  }
+
+  function backToWeekOverview() {
+    forecastRef.current?.scrollIntoView({
+      behavior: reduceMotion ? "auto" : "smooth",
+      block: "start",
+    });
+  }
+
   return (
     <div className="meadow-home font-meadow text-meadow-ink">
-      <section className="relative isolate overflow-hidden">
+      <section className="relative isolate flex min-h-[calc(100svh-77px)] overflow-hidden">
         <MeadowLandscape seed={21} />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-[1] transition-colors duration-500"
-          style={{
-            background: hasDeadlines
-              ? `radial-gradient(ellipse at 75% 38%, ${meta.glow}22, transparent 62%)`
-              : "transparent",
-          }}
-        />
-        <div className="relative z-10 mx-auto flex min-h-[calc(100svh-77px)] w-full max-w-7xl flex-col px-4 pb-12 pt-8 sm:px-6 sm:pb-16 sm:pt-12 lg:pt-14">
-          <header className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(380px,30rem)] lg:items-start lg:gap-16">
-            <div className="max-w-2xl">
-              <p
-                className="inline-flex animate-meadow-rise items-center gap-2 rounded-full border border-meadow-ink/10 bg-white/35 px-3.5 py-1.5 text-[11px] font-bold tracking-[0.12em] text-meadow-sub backdrop-blur-md"
-                style={{ animationDelay: "40ms" }}
-              >
-                <span className="h-1.5 w-1.5 rounded-full bg-meadow-olive" aria-hidden="true" />
-                {profile.program}
-                {profile.year ? ` · Year ${profile.year}` : ""}
-              </p>
+        <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-1 items-center justify-center px-4 py-12 text-center sm:px-6">
+          <div className="max-w-3xl">
+            <h1 className="animate-meadow-rise text-[clamp(3.5rem,9vw,7.4rem)] font-semibold leading-[0.9] tracking-[-0.06em] text-meadow-ink">
+              Hey{" "}
+              <span className="font-meadow-serif font-normal italic tracking-[-0.035em]">
+                {profile.name || "there"}
+              </span>{" "}
+              <span className="inline-block text-[0.62em] align-[0.12em]" aria-hidden="true">
+                👋
+              </span>
+            </h1>
+            <p className="mx-auto mt-6 max-w-xl animate-meadow-rise text-base font-medium leading-relaxed text-meadow-sub sm:text-lg">
+              Add your syllabus to see your semester forecast.
+            </p>
+            <div className="mt-8 flex flex-col items-center gap-3 animate-meadow-rise">
+              <MeadowButton onClick={() => setModalOpen(true)}>
+                {hasForecast ? "Add another syllabus" : "Add syllabus"}
+              </MeadowButton>
+              {!hasForecast ? (
+                <button
+                  type="button"
+                  onClick={showDemo}
+                  className="inline-flex min-h-11 items-center rounded-full px-4 text-sm font-semibold text-meadow-sub/80 underline decoration-meadow-sub/35 underline-offset-4 transition hover:text-meadow-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-meadow-olive"
+                >
+                  or try a demo student
+                </button>
+              ) : (
+                <a
+                  href="#forecast"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    forecastRef.current?.scrollIntoView({
+                      behavior: reduceMotion ? "auto" : "smooth",
+                      block: "start",
+                    });
+                  }}
+                  className="inline-flex min-h-11 items-center rounded-full px-4 text-sm font-semibold text-meadow-sub/80 underline decoration-meadow-sub/35 underline-offset-4 transition hover:text-meadow-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-meadow-olive"
+                >
+                  View my forecast <ArrowDown className="ml-1" size={14} aria-hidden="true" />
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
 
-              <h1
-                className="mt-5 animate-meadow-rise text-[clamp(3.7rem,8.5vw,7.4rem)] font-semibold leading-[0.86] tracking-[-0.06em] text-meadow-ink"
-                style={{ animationDelay: "110ms" }}
-              >
-                {profile.name ? (
-                  <>
-                    Hey{" "}
-                    <span className="font-meadow-serif font-normal italic tracking-[-0.035em]">
-                      {profile.name}
-                    </span>
-                  </>
-                ) : (
-                  "Hey there"
-                )}{" "}
-                <span className="text-[0.62em] align-[0.12em]" aria-hidden="true">
-                  👋
-                </span>
-              </h1>
-
-              <p
-                className="mt-6 max-w-lg animate-meadow-rise text-base font-medium leading-relaxed text-meadow-sub sm:text-lg"
-                style={{ animationDelay: "180ms" }}
-              >
-                Week {profile.currentWeek} of {profile.term}.
-                {hasDeadlines
-                  ? ` Tracking ${syllabi.length} ${
-                      syllabi.length === 1 ? "course" : "courses"
-                    } and ${deadlines.length} deadlines.`
-                  : " Let's get your semester on the radar."}
-              </p>
-
-              <div
-                className="mt-7 flex animate-meadow-rise flex-wrap items-center gap-3"
-                style={{ animationDelay: "250ms" }}
-              >
-                {!hasDeadlines ? (
-                  <MeadowButton onClick={actions.loadDemo}>
-                    <Sparkles size={17} aria-hidden="true" />
-                    Load demo student
-                  </MeadowButton>
-                ) : (
-                  <MeadowButton onClick={() => setModalOpen(true)}>
-                    <Plus size={18} aria-hidden="true" />
-                    Add syllabus
-                  </MeadowButton>
-                )}
-                <span className="text-xs font-bold tracking-wide text-meadow-sub/75">
-                  No account needed
+      {hasForecast && (
+        <section
+          id="forecast"
+          ref={forecastRef}
+          aria-label="Your semester forecast"
+          className={`scroll-mt-24 bg-meadow-ground px-4 pb-20 pt-6 text-[#eef1e6] sm:px-6 sm:pt-8 ${
+            animateReveal && !reduceMotion ? "forecast-reveal" : ""
+          }`}
+        >
+          <div className="mx-auto max-w-7xl space-y-5">
+            <section
+              aria-labelledby="semester-heading"
+              className="rounded-[28px] border border-white/10 bg-white/[0.035] p-5 sm:p-7"
+            >
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <h2 id="semester-heading" className="text-xl font-semibold tracking-[-0.03em]">
+                    Your semester
+                  </h2>
+                  <p className="mt-1 text-xs font-medium text-[#a9b49c]">
+                    Select a week to explore the forecast
+                  </p>
+                </div>
+                <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-bold text-[#c7cfba]">
+                  {syllabi.length} {syllabi.length === 1 ? "course" : "courses"} · {TOTAL_WEEKS} weeks
                 </span>
               </div>
-            </div>
-
-            <div
-              className="animate-meadow-rise lg:pt-2"
-              style={{ animationDelay: "160ms" }}
-            >
-              {!hasDeadlines ? (
-                <div className="relative overflow-hidden rounded-[32px] border border-meadow-ink/10 bg-[#fbfbf6]/80 p-6 shadow-[0_30px_90px_-36px_rgba(17,20,13,0.65)] backdrop-blur-xl sm:p-8">
-                  <div
-                    className="pointer-events-none absolute -right-14 -top-16 h-44 w-44 rounded-full bg-[#fffbef] blur-2xl"
-                    aria-hidden="true"
-                  />
-                  <div className="relative">
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="grid h-11 w-11 place-items-center rounded-full bg-meadow-olive/10 text-meadow-olive">
-                        <CloudSun size={25} strokeWidth={1.6} aria-hidden="true" />
+              <div
+                ref={stripRef}
+                className="mt-5 flex gap-2 overflow-x-auto pb-2"
+                role="group"
+                aria-label="Choose a forecast week"
+              >
+                {forecast.map((week) => {
+                  const weekMeta = weatherMeta(week.weather);
+                  const active = week.week === selectedWeek;
+                  return (
+                    <button
+                      key={week.week}
+                      data-week={week.week}
+                      onClick={() => setSelectedWeek(week.week)}
+                      onKeyDown={(event) => handleWeekKeyDown(event, week.week)}
+                      aria-pressed={active}
+                      aria-label={`Week ${week.week}: ${weekMeta.label}, ${week.due.length} ${
+                        week.due.length === 1 ? "thing" : "things"
+                      } due${week.week === profile.currentWeek ? ", this week" : ""}${
+                        clubEventCounts[week.week]
+                          ? `, ${clubEventCounts[week.week]} club event${clubEventCounts[week.week] === 1 ? "" : "s"}`
+                          : ""
+                      }`}
+                      className={`relative flex min-h-[118px] w-[100px] shrink-0 flex-col items-center justify-center gap-1 rounded-[22px] border px-2 py-3 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#eef1e6] ${
+                        active
+                          ? "border-[#eef1e6] bg-[#eef1e6] text-meadow-ink shadow-[0_16px_36px_-20px_rgba(0,0,0,0.8)]"
+                          : "border-white/10 bg-white/[0.035] text-[#eef1e6] hover:border-white/25 hover:bg-white/[0.07]"
+                      }`}
+                    >
+                      {week.week === profile.currentWeek && (
+                        <span className="absolute right-2 top-2 rounded-full bg-[#b8862e]/20 px-1.5 py-0.5 text-[8px] font-extrabold text-[#e2bd77]">
+                          This week
+                        </span>
+                      )}
+                      <WeatherIcon weather={week.weather} size="sm" stacked />
+                      <span className="text-[10px] font-extrabold">
+                        {week.due.length} {week.due.length === 1 ? "thing" : "things"} due
                       </span>
-                    </div>
+                      {clubEventCounts[week.week] > 0 && (
+                        <span className="sr-only">
+                          {clubEventCounts[week.week]} club events
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
 
-                    <h2 className="mt-6 text-3xl font-semibold leading-[1.02] tracking-[-0.04em] text-meadow-ink sm:text-[2.1rem]">
-                      No syllabus, no weather yet
-                    </h2>
-                    <p className="mt-3 text-sm font-medium leading-relaxed text-meadow-sub sm:text-base">
-                      Stormy says: “Add your first syllabus and I'll show your forecast ☁️”
-                    </p>
-
-                    <div className="mt-6 flex flex-wrap gap-2.5">
-                      <MeadowButton onClick={() => setModalOpen(true)}>
-                        <Plus size={17} aria-hidden="true" />
-                        Add syllabus
-                      </MeadowButton>
-                    </div>
-                    <ClubPlans events={selectedClubEvents} />
-                    <div className="mt-6 border-t border-meadow-ink/10 pt-4">
-                      <p className="text-sm font-extrabold text-meadow-ink">
-                        Your semester will look like this
-                      </p>
-                      <div
-                        aria-hidden="true"
-                        className="pointer-events-none mt-3 flex gap-2 opacity-55 blur-[1.5px] select-none"
-                      >
-                        {[
-                          ["☀️", "Sunny"],
-                          ["⛅", "Cloudy"],
-                          ["⛈️", "Storm"],
-                          ["❄️", "Blizzard"],
-                        ].map(([emoji, label], index) => (
-                          <span
-                            key={label}
-                            className={`flex min-h-[72px] min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-2xl border px-1 text-center ${
-                              index === 2
-                                ? "border-[#6b5bd6]/20 bg-[#6b5bd6]/[0.08]"
-                                : "border-meadow-ink/10 bg-white/40"
-                            }`}
-                          >
-                            <span className="text-xl">{emoji}</span>
-                            <span className="text-[10px] font-bold">{label}</span>
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <article
-                  key={selected.week}
-                  className="relative isolate overflow-hidden rounded-[32px] border border-meadow-ink/10 bg-[#fbfbf6]/85 p-5 shadow-[0_30px_90px_-36px_rgba(17,20,13,0.65)] backdrop-blur-xl sm:p-7"
-                  aria-label={`Week ${selected.week} forecast`}
-                >
-                  <WeatherFX weather={selected.weather} className="z-0 opacity-45" />
-                  <div className="relative z-10">
-                  <div
-                    className="absolute inset-x-0 top-0 z-10 h-1 bg-gradient-to-r from-[#a97722] via-[#8fa16b] to-[#4d5d2c]"
-                    aria-hidden="true"
-                  />
+            <div className="grid items-start gap-5">
+              <article
+                key={selected.week}
+                className="relative isolate overflow-hidden rounded-[28px] border border-meadow-ink/10 bg-[#fbfbf6]/95 p-5 text-meadow-ink shadow-[0_24px_70px_-35px_rgba(0,0,0,0.55)] sm:p-7"
+                aria-label={`Week ${selected.week} details`}
+              >
+                <WeatherFX weather={selected.weather} className="z-0 opacity-35" />
+                <div className="relative z-10">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <span className="grid h-12 w-12 place-items-center rounded-2xl bg-meadow-ink/[0.055] text-2xl">
-                        {meta.emoji}
-                      </span>
-                      <div>
-                        <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-meadow-sub/70">
-                          Feels like
-                        </p>
-                        <p className="text-sm font-extrabold text-meadow-ink">{meta.label}</p>
-                      </div>
+                      <WeatherIcon weather={selected.weather} />
                     </div>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <MeadowChip>Week {selected.week} of {TOTAL_WEEKS}</MeadowChip>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full bg-meadow-ink/[0.06] px-3 py-1.5 text-xs font-extrabold">
+                        Week {selected.week} of {TOTAL_WEEKS}
+                      </span>
                       {selected.week === profile.currentWeek && (
-                        <MeadowChip tone="amber">This week</MeadowChip>
+                        <span className="rounded-full bg-[#b8862e]/15 px-3 py-1.5 text-xs font-extrabold text-[#7d5a1b]">
+                          This week
+                        </span>
                       )}
                     </div>
                   </div>
 
-                  <h2 className="mt-5 text-3xl font-semibold leading-[1] tracking-[-0.045em] text-meadow-ink">
-                    {meta.headline}
+                  <h2 className="mt-5 text-3xl font-semibold leading-tight tracking-[-0.045em]">
+                    Week {selected.week}: {meta.headline}
                   </h2>
                   <p className="mt-2 text-sm font-medium leading-relaxed text-meadow-sub">
                     {WEATHER_COPY[selected.weather]}
@@ -418,257 +380,95 @@ export default function Forecast({ onOpenChat }) {
 
                   <div className="mt-5">
                     <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-                      <span className="font-extrabold text-meadow-ink">
-                        {selected.stress}%{" "}
-                        <span className="font-semibold text-meadow-sub">stressed</span>
+                      <span className="font-extrabold">
+                        Feels like: {selected.stress}% stressed
                       </span>
                       <span className="text-xs font-semibold text-meadow-sub">
                         {selected.due.length}{" "}
                         {selected.due.length === 1 ? "thing due" : "things due"}
                       </span>
                     </div>
-                    <StressBar
-                      value={selected.stress}
-                      weather={selected.weather}
-                      label={`Stress for week ${selected.week}: ${selected.stress}%`}
-                    />
+                    <StressBar value={selected.stress} weather={selected.weather} />
                   </div>
 
                   <div className="mt-5 border-t border-meadow-ink/10 pt-4">
-                    <h3 className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-meadow-sub/70">
-                      On the radar
-                    </h3>
+                    <h3 className="text-xs font-extrabold text-meadow-sub">What&apos;s due</h3>
                     {selected.due.length ? (
-                      <ul className="mt-1 divide-y divide-meadow-ink/[0.07]">
-                        {selected.due.slice(0, 4).map((item, index) => {
-                          const itemWeather =
-                            item.type === "midterm" || item.type === "final"
-                              ? "storm"
-                              : item.weight >= 10
-                                ? "blizzard"
-                                : "cloudy";
-                          return (
-                            <li
-                              key={`${item.course}-${item.title}-${index}`}
-                              className="flex items-center gap-3 py-2.5"
+                      <ul className="mt-2 divide-y divide-meadow-ink/[0.07]">
+                        {selected.due.map((item, index) => (
+                          <li
+                            key={`${item.course}-${item.title}-${index}`}
+                            className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5"
+                          >
+                            <p className="min-w-0 flex-1 text-sm font-extrabold leading-snug">
+                              {item.course}{" "}
+                              <span className="font-semibold">· {item.title}</span>
+                            </p>
+                            <span
+                              className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold capitalize ${
+                                TYPE_TONES[item.type] || TYPE_TONES.lab
+                              }`}
                             >
-                              <span
-                                className="h-2 w-2 shrink-0 rounded-full"
-                                style={{ backgroundColor: STRESS_COLORS[itemWeather] }}
-                                aria-hidden="true"
-                              />
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-bold text-meadow-ink">
-                                  {item.course}{" "}
-                                  <span className="font-semibold text-meadow-sub">
-                                    · {item.title}
-                                  </span>
-                                </p>
-                              </div>
-                              <div className="flex shrink-0 items-center gap-1.5">
-                                <MeadowChip tone={TYPE_TONES[item.type] || "default"}>
-                                  {item.type}
-                                </MeadowChip>
-                                <span className="w-14 text-right text-[11px] font-bold text-meadow-sub">
-                                  {item.day} · {item.weight}%
-                                </span>
-                              </div>
-                            </li>
-                          );
-                        })}
+                              {item.type}
+                            </span>
+                            <span className="text-xs font-bold text-meadow-sub">
+                              {item.day} · {item.time || "Time TBA"} · {item.weight}%
+                            </span>
+                          </li>
+                        ))}
                       </ul>
                     ) : (
-                      <p className="mt-3 flex items-center gap-2 text-sm font-semibold text-[#3d6237]">
+                      <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-[#3d6237]">
                         <CheckCircle2 size={16} aria-hidden="true" />
-                        Nothing due. Genuinely. Take the win.
-                      </p>
-                    )}
-                    {selected.due.length > 4 && (
-                      <p className="mt-1 text-[11px] font-semibold text-meadow-sub/75">
-                        + {selected.due.length - 4} more this week
+                        Nothing due this week. Take the win.
                       </p>
                     )}
                   </div>
 
                   <ClubPlans events={selectedClubEvents} />
 
-                  <div className="mt-5 flex flex-col gap-3 border-t border-meadow-ink/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-xs font-medium leading-relaxed text-meadow-sub">
+                  <div className="mt-5 border-t border-meadow-ink/10 pt-4">
+                    <p className="mb-3 text-xs font-medium leading-relaxed text-meadow-sub">
                       {selected.due.length
                         ? "Stormy can turn this into a Mon–Thu checklist."
                         : "A calm week. Make a little room for yourself."}
                     </p>
-                    {selected.due.length ? (
-                      <MeadowButton onClick={() => setPlanOpen(true)} className="shrink-0">
-                        <Sparkles size={17} aria-hidden="true" />
-                        Make my plan
-                      </MeadowButton>
-                    ) : (
-                      <MeadowChip tone="sage" className="shrink-0">
-                        <CheckCircle2 size={13} aria-hidden="true" />
-                        Nothing to plan
-                      </MeadowChip>
-                    )}
+                    <MeadowButton onClick={() => setPlanOpen(true)} className="w-full sm:w-auto">
+                      <Sparkles size={17} aria-hidden="true" />
+                      Make my plan
+                    </MeadowButton>
                   </div>
-                  </div>
-                </article>
-              )}
-            </div>
-          </header>
+                </div>
+              </article>
 
-          <div className="mt-auto flex items-end justify-between gap-4 pt-14 text-[10px] font-bold tracking-wide text-[#eef1e6]/70">
-            <span className="flex items-center gap-2">
-              <ArrowDown size={14} aria-hidden="true" />
-              {hasDeadlines ? "Scroll for your semester" : "Start with a syllabus or demo"}
-            </span>
-          </div>
-        </div>
-      </section>
-
-      {(hasDeadlines || hasClubEvents) && (
-        <section
-          className="relative bg-meadow-ground px-4 pb-16 pt-4 text-[#eef1e6] sm:px-6"
-          aria-label={hasDeadlines ? "Your semester" : "Club plans by week"}
-        >
-          <div className="mx-auto max-w-7xl rounded-[32px] border border-white/10 bg-white/[0.035] p-5 sm:p-7">
-            <div className="flex items-end justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-semibold tracking-[-0.03em]">
-                  {hasDeadlines ? "Your semester" : "Club plans"}
-                </h2>
-                <p className="mt-1 text-xs font-medium text-[#a9b49c]">
-                  Tap a week to preview it
-                </p>
-              </div>
-              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-bold text-[#c7cfba]">
-                {TOTAL_WEEKS} weeks · {profile.term}
-              </span>
-            </div>
-
-            <div
-              ref={stripRef}
-              className="mt-5 flex gap-2 overflow-x-auto pb-2"
-              role="group"
-              aria-label="Choose a week"
-            >
-              {forecast.map((week) => {
-                const weekMeta = weatherMeta(week.weather);
-                const active = week.week === selectedWeek;
-                return (
-                  <button
-                    key={week.week}
-                    data-active={active}
-                    onClick={() => selectWeek(week.week)}
-                    aria-pressed={active}
-                    aria-label={`Week ${week.week}: ${weekMeta.label}, ${week.stress}% stress${
-                      week.week === profile.currentWeek ? ", current week" : ""
-                    }${clubEventCounts[week.week] ? `, ${clubEventCounts[week.week]} club event${clubEventCounts[week.week] === 1 ? "" : "s"}` : ""}`}
-                    className={`relative flex min-h-[92px] w-[88px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-[22px] border px-2 py-3 transition ${
-                      active
-                        ? "border-[#eef1e6] bg-[#eef1e6] text-meadow-ink shadow-[0_16px_36px_-20px_rgba(0,0,0,0.8)]"
-                        : "border-white/10 bg-white/[0.035] text-[#eef1e6] hover:border-white/25 hover:bg-white/[0.07]"
-                    }`}
-                  >
-                    <span className="text-2xl" aria-hidden="true">
-                      {weekMeta.emoji}
-                    </span>
-                    <span className="text-xs font-extrabold">Wk {week.week}</span>
-                    <span
-                      className={`text-[10px] font-bold ${
-                        active ? "text-[#67705f]" : "text-[#a9b49c]"
-                      }`}
-                    >
-                      {weekMeta.label}
-                    </span>
-                    {week.week === profile.currentWeek && (
-                      <span
-                        className={`absolute right-1 top-1 rounded-full px-1.5 py-0.5 text-[8px] font-extrabold ${
-                          active
-                            ? "bg-meadow-olive/15 text-meadow-olive"
-                            : "bg-[#b8862e]/20 text-[#e2bd77]"
-                        }`}
-                      >
-                        This week
-                      </span>
-                    )}
-                    {clubEventCounts[week.week] > 0 && (
-                      <span className="absolute bottom-1.5 right-2 text-[10px]" aria-hidden="true">
-                        💚
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+              <button
+                type="button"
+                onClick={scrollToDayByDay}
+                className="mx-auto inline-flex min-h-12 items-center gap-2 rounded-full border border-white/20 bg-white/[0.08] px-6 text-sm font-extrabold text-[#eef1e6] transition hover:bg-white/[0.14] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#eef1e6]"
+              >
+                See week {selected.week} day by day <ArrowDown size={16} aria-hidden="true" />
+              </button>
             </div>
           </div>
         </section>
       )}
 
-      <footer className="bg-meadow-ground px-4 pb-28 text-[#eef1e6] sm:px-6 md:pb-10">
-        <div className="mx-auto max-w-7xl border-t border-white/10 pt-10">
-          <div className="grid gap-10 md:grid-cols-[1.15fr_2fr] md:gap-16">
-            <div>
-              <Link to="/" className="inline-flex items-center gap-3" aria-label="Clear Skies home">
-                <span className="grid h-11 w-11 place-items-center rounded-full border border-white/15 text-[#eef1e6]">
-                  <SunMark className="h-6 w-6" />
-                </span>
-                <span className="text-xl font-semibold tracking-[-0.035em]">Clear Skies</span>
-              </Link>
-              <p className="mt-4 max-w-xs text-sm font-medium leading-relaxed text-[#a9b49c]">
-                A calmer semester starts with seeing what&apos;s ahead.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-8 sm:grid-cols-3">
-              {FOOTER_LINKS.map((column) => (
-                <div key={column.title}>
-                  <h3 className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8f9b84]">
-                    {column.title}
-                  </h3>
-                  <ul className="mt-4 space-y-2.5">
-                    {column.links.map((link) => (
-                      <li key={link.label}>
-                        {link.to ? (
-                          <Link
-                            to={link.to}
-                            className="inline-flex items-center gap-1 text-sm font-semibold text-[#d8ddcf] transition hover:text-white"
-                          >
-                            {link.label}
-                            <ArrowUpRight size={12} aria-hidden="true" />
-                          </Link>
-                        ) : link.action === "chat" ? (
-                          <button
-                            type="button"
-                            onClick={onOpenChat}
-                            className="inline-flex items-center gap-1 text-sm font-semibold text-[#d8ddcf] transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#eef1e6]"
-                          >
-                            {link.label}
-                            <ArrowUpRight size={12} aria-hidden="true" />
-                          </button>
-                        ) : (
-                          <span className="text-sm font-medium text-[#8f9b84]">
-                            {link.label}
-                          </span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-10 flex flex-col gap-2 border-t border-white/10 pt-6 text-[11px] font-semibold text-[#8f9b84] sm:flex-row sm:items-center sm:justify-between">
-            <span>Built for HackED Beta. Your data stays in your browser.</span>
-            <span>
-              © {new Date().getFullYear()} Clear Skies · University of Alberta
-            </span>
-          </div>
+      {hasForecast && (
+        <div ref={immersiveRef} className="immersive-day-section-wrap">
+          <DailyForecastSection
+            week={selected}
+            clubEvents={selectedClubEvents}
+            onBackToWeek={backToWeekOverview}
+          />
         </div>
-      </footer>
+      )}
 
-      <SyllabusModal open={modalOpen} onClose={() => setModalOpen(false)} onAdded={handleAdded} />
-      {hasDeadlines && (
+      <SyllabusModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onAdded={handleAdded}
+      />
+      {hasForecast && (
         <StormPlanPanel
           open={planOpen}
           onClose={() => setPlanOpen(false)}

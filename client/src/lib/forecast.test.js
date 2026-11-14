@@ -8,7 +8,8 @@ import {
 } from "./degreeForecast.js";
 import { courses } from "../data/courses.js";
 import { demoCompleted } from "../data/demo.js";
-import { getCurrentWeek } from "../config/term.js";
+import { getCurrentWeek, getDateForWeekDay, formatDate } from "../config/term.js";
+import { dailyWeather, normalizeDeadline, timeOrder } from "./deadlines.js";
 
 const d = (week, weight, type = "assignment", day = "Mon") => ({
   course: "CMPUT 201",
@@ -50,15 +51,16 @@ assert.equal(
   "the first day of term is week 1"
 );
 assert.equal(
-  getCurrentWeek(new Date("2026-09-01T12:00:00")),
-  1,
-  "dates before term starts are clamped to week 1"
+  getCurrentWeek(new Date("2026-09-09T12:00:00")),
+  2,
+  "week boundaries align with the Monday-to-Sunday daily forecast"
 );
 assert.equal(
   getCurrentWeek(new Date("2027-01-01T12:00:00")),
   15,
   "dates beyond the term are clamped to the last week"
 );
+assert.equal(formatDate(getDateForWeekDay(1, "Wed")), "Sep 2", "daily dates align to term start");
 
 const eventForecast = buildForecast([d(3, 20, "midterm"), d(4, 30)]);
 const likedClubs = [
@@ -128,5 +130,33 @@ graduation.terms.forEach((term) => {
   });
   term.courses.forEach((course) => scheduled.add(course.code));
 });
+
+assert.equal(dailyWeather([]), "sunny", "days without deadlines are sunny");
+assert.equal(
+  dailyWeather([{ weight: 9, type: "assignment" }]),
+  "cloudy",
+  "daily workloads under ten percent are cloudy"
+);
+assert.equal(
+  dailyWeather([{ weight: 10, type: "quiz" }]),
+  "storm",
+  "daily workloads of ten percent are stormy"
+);
+assert.equal(
+  dailyWeather([{ weight: 10 }, { weight: 15 }]),
+  "blizzard",
+  "two large daily items cause a blizzard"
+);
+assert.equal(
+  dailyWeather([{ weight: 35, type: "final" }]),
+  "deepfreeze",
+  "final exams cause a deep freeze"
+);
+assert.equal(
+  normalizeDeadline({ day: "Thursday", time: "2pm" }).time,
+  "2:00 PM",
+  "deadline times are normalized"
+);
+assert.ok(timeOrder("10:00 AM") < timeOrder("2:00 PM"), "daily due items sort by time");
 
 console.log("forecast and club event checks passed");

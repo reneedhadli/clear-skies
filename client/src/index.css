@@ -34,6 +34,32 @@
   --animate-meadow-rise: meadow-rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+.immersive-weather-layer,
+.immersive-day-nav-button {
+  transition: none;
+}
+
+.immersive-weather-layer *,
+.immersive-weather-layer.is-current *,
+.weather-lightning {
+  animation: none !important;
+}
+
+.weather-lightning {
+  display: none;
+}
+
+@keyframes forecast-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @keyframes pulse-soft {
   0%,
   100% {
@@ -233,6 +259,363 @@ button:disabled {
 
 @utility animate-fade-up {
   animation: fade-up 0.45s ease-out both;
+}
+
+.forecast-reveal {
+  animation: forecast-reveal 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.immersive-day-section-wrap {
+  position: relative;
+  margin: 0;
+  background: transparent;
+}
+
+.immersive-day-scroll {
+  position: relative;
+  isolation: isolate;
+  height: 100svh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scroll-snap-type: y proximity;
+  scrollbar-color: rgba(238, 241, 230, 0.55) transparent;
+  scrollbar-width: thin;
+  background: transparent;
+}
+
+.immersive-weather-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 0;
+  height: 100svh;
+  margin-bottom: -100svh;
+  pointer-events: none;
+}
+
+.immersive-weather-backdrop,
+.immersive-weather-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.immersive-weather-layer {
+  opacity: 0;
+  transition: opacity 700ms ease;
+}
+
+.immersive-weather-layer.is-current {
+  opacity: 1;
+}
+
+.immersive-weather-sunny {
+  background:
+    radial-gradient(ellipse at 70% 78%, rgba(255, 216, 145, 0.92), transparent 48%),
+    linear-gradient(165deg, #9ed1e6 0%, #d7e5d6 47%, #f5d69c 100%);
+}
+
+.immersive-weather-cloudy {
+  background: linear-gradient(160deg, #b8c7d0 0%, #d9e0dc 50%, #b8c7ca 100%);
+}
+
+.immersive-weather-storm {
+  background:
+    radial-gradient(ellipse at 50% 20%, rgba(81, 80, 135, 0.68), transparent 50%),
+    linear-gradient(160deg, #3e4b60 0%, #303247 50%, #222b3a 100%);
+}
+
+.immersive-weather-blizzard {
+  background:
+    radial-gradient(ellipse at 60% 30%, rgba(255, 255, 255, 0.86), transparent 56%),
+    linear-gradient(155deg, #dce8ed 0%, #becfd9 52%, #e5e9e4 100%);
+}
+
+.immersive-weather-deepfreeze {
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(255, 255, 255, 0.92), transparent 58%),
+    linear-gradient(155deg, #e7f2f5 0%, #cbdfe8 56%, #f4f7f4 100%);
+}
+
+.weather-sun {
+  position: absolute;
+  top: 13%;
+  right: 15%;
+  width: clamp(100px, 16vw, 200px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff5cd 0%, #ffda8d 46%, rgba(255, 208, 122, 0) 72%);
+  box-shadow: 0 0 90px 28px rgba(255, 218, 141, 0.32);
+}
+
+.weather-sun::before {
+  position: absolute;
+  inset: -28%;
+  border-radius: 50%;
+  background: repeating-conic-gradient(
+    from 0deg,
+    rgba(255, 239, 190, 0.24) 0deg 3deg,
+    transparent 3deg 20deg
+  );
+  content: "";
+  mask-image: radial-gradient(circle, transparent 0 38%, #000 44% 64%, transparent 70%);
+}
+
+.weather-clouds,
+.weather-storm-clouds {
+  position: absolute;
+  inset: 0;
+}
+
+.weather-cloud,
+.storm-cloud {
+  position: absolute;
+  width: clamp(160px, 30vw, 420px);
+  height: clamp(56px, 9vw, 112px);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.35);
+  filter: blur(1px);
+}
+
+.weather-cloud::before,
+.weather-cloud::after,
+.storm-cloud::before,
+.storm-cloud::after {
+  position: absolute;
+  border-radius: 50%;
+  background: inherit;
+  content: "";
+}
+
+.weather-cloud::before,
+.storm-cloud::before {
+  left: 18%;
+  bottom: 20%;
+  width: 42%;
+  height: 105%;
+}
+
+.weather-cloud::after,
+.storm-cloud::after {
+  right: 17%;
+  bottom: 15%;
+  width: 34%;
+  height: 85%;
+}
+
+.cloud-one {
+  top: 20%;
+  left: 4%;
+  opacity: 0.62;
+}
+
+.cloud-two {
+  top: 46%;
+  right: 3%;
+  transform: scale(0.72);
+  opacity: 0.44;
+}
+
+.cloud-three {
+  top: 66%;
+  left: 18%;
+  transform: scale(0.5);
+  opacity: 0.35;
+}
+
+.immersive-weather-cloudy .weather-cloud {
+  background: rgba(247, 250, 250, 0.52);
+}
+
+.storm-cloud {
+  width: 70vw;
+  max-width: 760px;
+  height: 150px;
+  background: rgba(25, 30, 47, 0.58);
+  filter: blur(14px);
+}
+
+.storm-cloud-one {
+  top: 9%;
+  left: -20%;
+}
+
+.storm-cloud-two {
+  top: 28%;
+  right: -24%;
+  transform: scale(0.8);
+  opacity: 0.7;
+}
+
+.weather-lightning {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: radial-gradient(ellipse at 68% 23%, rgba(198, 208, 255, 0.3), transparent 52%);
+}
+
+.weather-lightning.is-flashing {
+  animation: soft-lightning 140ms ease-out both;
+}
+
+.weather-particles {
+  position: absolute;
+  inset: 0;
+}
+
+.weather-particles > span {
+  position: absolute;
+  top: -8%;
+  display: block;
+}
+
+.rain-particles > span {
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(208, 222, 255, 0.65);
+  transform: rotate(20deg);
+  animation: immersive-rain 1.65s linear infinite;
+}
+
+.snow-particles > span {
+  color: rgba(255, 255, 255, 0.82);
+  animation: immersive-snow 8s linear infinite;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.65);
+}
+
+.immersive-weather-deepfreeze .snow-particles > span {
+  color: rgba(93, 145, 174, 0.65);
+}
+
+.weather-fog {
+  position: absolute;
+  inset: 45% -20% -12%;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.45));
+  filter: blur(30px);
+  animation: immersive-fog 12s ease-in-out infinite alternate;
+}
+
+.weather-frost {
+  position: absolute;
+  inset: 0;
+  box-shadow:
+    inset 0 0 70px 20px rgba(255, 255, 255, 0.78),
+    inset 0 -12vh 22vh rgba(164, 207, 226, 0.25);
+}
+
+.effects-running .immersive-weather-sunny.is-current .weather-sun::before {
+  animation: sun-rays 36s linear infinite;
+}
+
+.effects-running .immersive-weather-sunny.is-current .weather-cloud,
+.effects-running .immersive-weather-cloudy.is-current .weather-cloud,
+.effects-running .immersive-weather-storm.is-current .storm-cloud {
+  animation: cloud-drift 54s ease-in-out infinite alternate;
+}
+
+.effects-running .immersive-weather-cloudy.is-current .cloud-two {
+  animation-duration: 74s;
+}
+
+.immersive-weather-layer.is-leaving *,
+.immersive-weather-backdrop:not(.effects-running) * {
+  animation: none !important;
+}
+
+.immersive-day-panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-height: 100svh;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(1.25rem, 5vh, 4rem) clamp(4.5rem, 9vw, 8rem) clamp(1.25rem, 5vh, 4rem) clamp(1rem, 5vw, 5rem);
+  scroll-snap-align: start;
+}
+
+.immersive-day-card {
+  width: min(100%, 800px);
+  border: 1px solid rgba(17, 20, 13, 0.14);
+  border-radius: 32px;
+  padding: clamp(1.4rem, 4vw, 3.25rem);
+  background: rgba(251, 251, 246, 0.9);
+  box-shadow: 0 28px 80px -32px rgba(17, 20, 13, 0.46);
+  backdrop-filter: blur(24px);
+}
+
+.immersive-day-panel[data-day-weather="storm"] .immersive-day-card,
+.immersive-day-panel[data-day-weather="blizzard"] .immersive-day-card,
+.immersive-day-panel[data-day-weather="deepfreeze"] .immersive-day-card {
+  background: rgba(251, 251, 246, 0.96);
+}
+
+.immersive-day-nav {
+  position: sticky;
+  top: 42svh;
+  z-index: 5;
+  width: 0;
+  height: 0;
+  margin-left: auto;
+}
+
+.immersive-day-nav-button {
+  position: absolute;
+  right: 1rem;
+  display: flex;
+  width: 48px;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  flex-direction: column;
+  border: 1px solid rgba(17, 20, 13, 0.16);
+  border-radius: 15px;
+  color: #26301f;
+  background: rgba(251, 251, 246, 0.78);
+  box-shadow: 0 8px 24px -16px rgba(17, 20, 13, 0.65);
+  backdrop-filter: blur(12px);
+  transition: background-color 200ms ease, transform 200ms ease;
+}
+
+.immersive-day-nav-button:nth-child(1) { top: 0; }
+.immersive-day-nav-button:nth-child(2) { top: 52px; }
+.immersive-day-nav-button:nth-child(3) { top: 104px; }
+.immersive-day-nav-button:nth-child(4) { top: 156px; }
+.immersive-day-nav-button:nth-child(5) { top: 208px; }
+.immersive-day-nav-button:nth-child(6) { top: 260px; }
+.immersive-day-nav-button:nth-child(7) { top: 312px; }
+
+.immersive-day-nav-button.is-active {
+  border-color: #3d6b43;
+  color: #fff;
+  background: #3d6b43;
+  transform: scale(1.06);
+}
+
+@keyframes soft-lightning {
+  0% { opacity: 0; }
+  35% { opacity: 0.3; }
+  100% { opacity: 0; }
+}
+
+@keyframes sun-rays {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes cloud-drift {
+  to { translate: 30px 0; }
+}
+
+@keyframes immersive-rain {
+  to { transform: translate3d(-44px, 112vh, 0) rotate(20deg); opacity: 0.05; }
+}
+
+@keyframes immersive-snow {
+  to { transform: translate3d(35px, 112vh, 0) rotate(220deg); opacity: 0.15; }
+}
+
+@keyframes immersive-fog {
+  to { transform: translateX(5%); opacity: 0.65; }
 }
 
 @media (prefers-reduced-motion: reduce) {
